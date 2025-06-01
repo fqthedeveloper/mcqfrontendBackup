@@ -1,0 +1,169 @@
+/* src/components/Student/Result.css */
+.result-container {
+  max-width: 1200px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+}
+
+.result-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 1.5rem;
+}
+
+.result-header h1 {
+  color: #2c3e50;
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.result-header h2 {
+  color: #3498db;
+  font-size: 1.8rem;
+  margin-bottom: 1.5rem;
+}
+
+.result-summary {
+  display: flex;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+
+.score-card {
+  display: flex;
+  align-items: center;
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.score-percentage {
+  font-size: 3.5rem;
+  font-weight: bold;
+  color: #27ae60;
+  margin-right: 2rem;
+}
+
+.score-details p {
+  margin: 0.5rem 0;
+  font-size: 1.1rem;
+  color: #34495e;
+}
+
+.result-details {
+  margin: 2rem 0;
+}
+
+.result-details h3 {
+  color: #2c3e50;
+  font-size: 1.5rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #3498db;
+}
+
+.result-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+.result-table th {
+  background-color: #3498db;
+  color: white;
+  text-align: left;
+  padding: 12px 15px;
+}
+
+.result-table td {
+  padding: 12px 15px;
+  border-bottom: 1px solid #eee;
+}
+
+.result-table tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.result-table tr:hover {
+  background-color: #f1f7fd;
+}
+
+.correct-row {
+  background-color: #e8f5e9 !important;
+}
+
+.incorrect-row {
+  background-color: #ffebee !important;
+}
+
+.status-badge {
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-weight: bold;
+  font-size: 0.85rem;
+}
+
+.status-badge.correct {
+  background-color: #e8f5e9;
+  color: #27ae60;
+}
+
+.status-badge.incorrect {
+  background-color: #ffebee;
+  color: #e74c3c;
+}
+
+.marks-obtained {
+  color: #27ae60;
+  font-weight: bold;
+}
+
+.marks-missed {
+  color: #e74c3c;
+  font-weight: bold;
+}
+
+.result-footer {
+  text-align: center;
+  margin-top: 2rem;
+}
+
+.dashboard-btn {
+  background: #3498db;
+  color: white;
+  border: none;
+  padding: 12px 25px;
+  border-radius: 5px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.dashboard-btn:hover {
+  background: #2980b9;
+}
+
+.result-loading, .result-error, .result-empty {
+  text-align: center;
+  padding: 2rem;
+}
+
+.loading-spinner {
+  border: 5px solid #f3f3f3;
+  border-top: 5px solid #3498db;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
