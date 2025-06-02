@@ -1,5 +1,4 @@
-// src/components/Auth/Login.jsx
-import React, { useEffect, useState } from "react"; 
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/authContext";
 import "../CSS/Login.css";
@@ -7,18 +6,14 @@ import "../CSS/Login.css";
 export default function Login() {
   const [usernameOrEmail, setUsernameOrEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  useEffect(() => {
-    document.title = "Login - MCQ Application";
-  }, []);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
+    setErrors({});
     setLoading(true);
 
     try {
@@ -33,12 +28,24 @@ export default function Login() {
         }),
       });
 
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Invalid credentials");
-      }
-
       const data = await res.json();
+
+      if (!res.ok) {
+        // Handle field-specific errors
+        if (data.username_or_email || data.password) {
+          setErrors({
+            usernameOrEmail: data.username_or_email,
+            password: data.password
+          });
+        } else {
+          // Handle general errors
+          setErrors({
+            nonField: data.error || "Login failed. Please try again."
+          });
+        }
+        setLoading(false);
+        return;
+      }
 
       const user = {
         id: data.id,
@@ -59,8 +66,9 @@ export default function Login() {
         navigate("/student", { replace: true });
       }
     } catch (err) {
-      setError(err.message || "Invalid credentials");
-    } finally {
+      setErrors({
+        nonField: "Network error. Please check your connection."
+      });
       setLoading(false);
     }
   };
@@ -78,7 +86,7 @@ export default function Login() {
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
-          {error && <div className="error-message">{error}</div>}
+          {errors.nonField && <div className="error-message">{errors.nonField}</div>}
 
           <div className="input-group">
             <label htmlFor="usernameOrEmail">Email or Username</label>
@@ -91,8 +99,11 @@ export default function Login() {
                 value={usernameOrEmail}
                 onChange={(e) => setUsernameOrEmail(e.target.value)}
                 required
+                className={errors.usernameOrEmail ? "error" : ""}
               />
             </div>
+            {errors.usernameOrEmail && 
+              <div className="field-error">{errors.usernameOrEmail}</div>}
           </div>
 
           <div className="input-group">
@@ -106,8 +117,11 @@ export default function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                className={errors.password ? "error" : ""}
               />
             </div>
+            {errors.password && 
+              <div className="field-error">{errors.password}</div>}
           </div>
 
           <div className="forgot-password">

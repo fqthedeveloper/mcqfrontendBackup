@@ -39,7 +39,7 @@ const QuestionUpload = () => {
 
   const fetchSubjects = async () => {
     try {
-      const authToken = token || localStorage.getItem("utd_auth");
+      const authToken = token || localStorage.getItem("access_token");
       const response = await axios.get("http://localhost:8000/api/subjects/", {
         headers: {
           Authorization: `Token ${authToken}`,

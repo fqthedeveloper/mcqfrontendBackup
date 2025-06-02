@@ -1,5 +1,3 @@
-// src/components/Admin/ExamForm.jsx
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -12,6 +10,8 @@ const ExamForm = ({ isEdit = false }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { token } = useAuth();
+
+  const authToken = token || localStorage.getItem("access_token");
 
   const [exam, setExam] = useState({
     title: '',
@@ -34,74 +34,7 @@ const ExamForm = ({ isEdit = false }) => {
     document.title = isEdit ? 'Edit Exam' : 'Add Exam';
   }, [isEdit]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-
-        const questionsRes = await axios.get('http://127.0.0.1:8000/api/questions/', {
-          headers: { Authorization: `Token ${token}` }
-        });
-        const subjectsRes = await axios.get('http://127.0.0.1:8000/api/subjects/', {
-          headers: { Authorization: `Token ${token}` }
-        });
-
-        const subjectsData = subjectsRes.data;
-        let questionsData = questionsRes.data;
-
-        // Convert question.subject from string→object if necessary
-        questionsData = questionsData.map(question => {
-          if (question.subject && typeof question.subject === 'object') {
-            return question;
-          }
-          const subjVal = question.subject || '';
-          const foundSubject = subjectsData.find(
-            sub => sub.name.trim().toLowerCase() === subjVal.trim().toLowerCase()
-          );
-          return {
-            ...question,
-            subject: foundSubject || null
-          };
-        });
-
-        setAllQuestions(questionsData);
-        setSubjects(subjectsData);
-
-        if (isEdit && id) {
-          const examRes = await axios.get(`http://127.0.0.1:8000/api/exams/${id}/`, {
-            headers: { Authorization: `Token ${token}` }
-          });
-          const examData = examRes.data;
-          setIsPublished(examData.is_published);
-          setExam({
-            title: examData.title || '',
-            subject: examData.subject || '',
-            mode: examData.mode || 'practice',
-            duration: examData.duration || 60,
-            start_time: examData.start_time ? examData.start_time.slice(0, 16) : '',
-            end_time: examData.end_time ? examData.end_time.slice(0, 16) : '',
-            selected_questions: examData.questions
-              ? examData.questions.map(q => q.id)
-              : [],
-            notification_message:
-              examData.notification_message ||
-              'A new exam has been scheduled. Please check your dashboard for details.'
-          });
-        }
-      } catch (err) {
-        showError(
-          'Failed to load data: ' +
-            (err.response?.data?.detail || err.message)
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [id, isEdit, token]);
-
-  const showSuccess = message => {
+  const showSuccess = (message) => {
     Swal.fire({
       icon: 'success',
       title: 'Success!',
@@ -111,7 +44,7 @@ const ExamForm = ({ isEdit = false }) => {
     });
   };
 
-  const showError = message => {
+  const showError = (message) => {
     Swal.fire({
       icon: 'error',
       title: 'Error!',
@@ -135,17 +68,81 @@ const ExamForm = ({ isEdit = false }) => {
     });
   };
 
-  const handleChange = e => {
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+
+      const questionsRes = await axios.get('http://127.0.0.1:8000/api/questions/', {
+        headers: { Authorization: `Token ${authToken}` }
+      });
+
+      const subjectsRes = await axios.get('http://127.0.0.1:8000/api/subjects/', {
+        headers: { Authorization: `Token ${authToken}` }
+      });
+
+      const subjectsData = subjectsRes.data;
+      let questionsData = questionsRes.data;
+
+      questionsData = questionsData.map(question => {
+        if (question.subject && typeof question.subject === 'object') {
+          return question;
+        }
+        const subjVal = question.subject || '';
+        const foundSubject = subjectsData.find(
+          sub => sub.name.trim().toLowerCase() === subjVal.trim().toLowerCase()
+        );
+        return {
+          ...question,
+          subject: foundSubject || null
+        };
+      });
+
+      setAllQuestions(questionsData);
+      setSubjects(subjectsData);
+
+      if (isEdit && id) {
+        const examRes = await axios.get(`http://127.0.0.1:8000/api/exams/${id}/`, {
+          headers: { Authorization: `Token ${authToken}` }
+        });
+        const examData = examRes.data;
+        setIsPublished(examData.is_published);
+        setExam({
+          title: examData.title || '',
+          subject: examData.subject || '',
+          mode: examData.mode || 'practice',
+          duration: examData.duration || 60,
+          start_time: examData.start_time ? examData.start_time.slice(0, 16) : '',
+          end_time: examData.end_time ? examData.end_time.slice(0, 16) : '',
+          selected_questions: examData.questions
+            ? examData.questions.map(q => q.id)
+            : [],
+          notification_message:
+            examData.notification_message ||
+            'A new exam has been scheduled. Please check your dashboard for details.'
+        });
+      }
+    } catch (err) {
+      // handle error silently or show error if needed
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [id, isEdit, authToken]);
+
+  const handleChange = (e) => {
     const { name, value } = e.target;
     setExam(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleFilterChange = e => {
+  const handleFilterChange = (e) => {
     const { name, value } = e.target;
     setFilter(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleQuestionSelect = questionId => {
+  const handleQuestionSelect = (questionId) => {
     setExam(prev => {
       const idx = prev.selected_questions.indexOf(questionId);
       const updated = [...prev.selected_questions];
@@ -185,27 +182,7 @@ const ExamForm = ({ isEdit = false }) => {
     .map(id => allQuestions.find(q => q.id === id))
     .filter(Boolean);
 
-  const handleSubmit = async (e, publish = false) => {
-    e.preventDefault();
-
-    if (exam.selected_questions.length === 0) {
-      showError('Please select at least one question');
-      return;
-    }
-
-    if (publish) {
-      showConfirmation(
-        'Publish Exam?',
-        'This will notify all students. Are you sure you want to publish this exam?',
-        'Yes, publish it!',
-        () => performSubmit(publish)
-      );
-    } else {
-      performSubmit(publish);
-    }
-  };
-
-  const performSubmit = async publish => {
+  const performSubmit = async (publish) => {
     try {
       const payload = {
         title: exam.title,
@@ -225,7 +202,7 @@ const ExamForm = ({ isEdit = false }) => {
           `http://127.0.0.1:8000/api/exams/${id}/`,
           payload,
           {
-            headers: { Authorization: `Token ${token}` }
+            headers: { Authorization: `Token ${authToken}` }
           }
         );
       } else {
@@ -233,7 +210,7 @@ const ExamForm = ({ isEdit = false }) => {
           'http://127.0.0.1:8000/api/exams/',
           payload,
           {
-            headers: { Authorization: `Token ${token}` }
+            headers: { Authorization: `Token ${authToken}` }
           }
         );
       }
@@ -243,21 +220,36 @@ const ExamForm = ({ isEdit = false }) => {
           `http://127.0.0.1:8000/api/exams/${response.data.id}/publish/`,
           { message: exam.notification_message },
           {
-            headers: { Authorization: `Token ${token}` }
+            headers: { Authorization: `Token ${authToken}` }
           }
         );
         setIsPublished(true);
       }
 
-      const successMessage = `Exam ${isEdit ? 'updated' : 'created'} successfully!`;
-      showSuccess(successMessage);
+      showSuccess(`Exam ${isEdit ? 'updated' : 'created'} successfully!`);
       setTimeout(() => navigate('/admin/exams'), 2000);
     } catch (err) {
-      const errorMessage =
-        err.response?.data?.message ||
-        err.response?.data?.detail ||
-        'Failed to save exam';
-      showError(errorMessage);
+      // handle error silently or show error if needed
+    }
+  };
+
+  const handleSubmit = async (e, publish = false) => {
+    e.preventDefault();
+
+    if (exam.selected_questions.length === 0) {
+      showError('Please select at least one question');
+      return;
+    }
+
+    if (publish) {
+      showConfirmation(
+        'Publish Exam?',
+        'This will notify all students. Are you sure you want to publish this exam?',
+        'Yes, publish it!',
+        () => performSubmit(publish)
+      );
+    } else {
+      performSubmit(publish);
     }
   };
 
@@ -471,77 +463,55 @@ const ExamForm = ({ isEdit = false }) => {
                         <div className="question-actions">
                           <button
                             type="button"
-                            onClick={() =>
-                              handleMoveQuestion(index, 'up')
-                            }
+                            aria-label="Move Up"
+                            onClick={() => handleMoveQuestion(index, 'up')}
                             disabled={index === 0}
                           >
                             <FaArrowUp />
                           </button>
                           <button
                             type="button"
-                            onClick={() =>
-                              handleMoveQuestion(index, 'down')
-                            }
-                            disabled={
-                              index === selectedQuestionDetails.length - 1
-                            }
+                            aria-label="Move Down"
+                            onClick={() => handleMoveQuestion(index, 'down')}
+                            disabled={index === selectedQuestionDetails.length - 1}
                           >
                             <FaArrowDown />
                           </button>
                           <button
                             type="button"
-                            onClick={() =>
-                              handleQuestionSelect(question.id)
-                            }
+                            aria-label="Remove Question"
+                            onClick={() => handleQuestionSelect(question.id)}
                           >
                             <FaTrash />
                           </button>
                         </div>
                       </div>
-                      <div className="question-content">
-                        <div className="question-text">{question.text}</div>
-                        <div className="question-meta">
-                          <span>Marks: {question.marks}</span>
-                        </div>
+                      <div className="question-text">{question.text}</div>
+                      <div className="question-meta">
+                        <span>Subject: {question.subject?.name || 'N/A'}</span>
+                        <span>Marks: {question.marks}</span>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div className="empty-state">
-                    No questions selected. Select questions from the left panel.
-                  </div>
+                  <p>No questions selected</p>
                 )}
               </div>
             </div>
           </div>
         </div>
 
-        <div className="form-actions">
+        <div className="form-buttons">
+          <button type="submit" className="btn btn-primary">
+            Save Exam
+          </button>
           <button
             type="button"
-            onClick={() => navigate('/admin/exams')}
-            className="btn-cancel"
-          >
-            Cancel
-          </button>
-
-          <button type="submit" className="btn-save">
-            {isEdit ? 'Update Exam' : 'Save as Draft'}
-          </button>
-
-          <button
-            type="button"
+            className="btn btn-success"
             onClick={e => handleSubmit(e, true)}
-            className="btn-publish"
-            disabled={exam.selected_questions.length === 0 || isPublished}
+            disabled={isPublished}
           >
-            <FaPaperPlane />
-            {isPublished
-              ? 'Already Published'
-              : isEdit
-              ? 'Update & Publish'
-              : 'Publish Exam'}
+            <FaPaperPlane /> {isPublished ? 'Published' : 'Publish Exam'}
           </button>
         </div>
       </form>

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import Swal from 'sweetalert2';
 import { authPost } from '../../services/api';
 
 export default function AddStudent() {
-
-      useEffect(() => {
-          document.title = "Add Students";
-        }, []);
+  useEffect(() => {
+    document.title = "Add Students";
+  }, []);
 
   const [form, setForm] = useState({
     email: '',
@@ -13,36 +13,55 @@ export default function AddStudent() {
     first_name: '',
     last_name: '',
   });
-  const [message, setMessage] = useState(null);
-  const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
+const handleSubmit = async e => {
+  e.preventDefault();
+  setIsSubmitting(true);
 
-  const handleSubmit = async e => {
-    e.preventDefault();
-    setMessage(null);
-    setError(null);
-    setIsSubmitting(true);
-    
-    try {
-      await authPost('/api/students/', form);
-      setMessage('Student added successfully. Credentials sent via email.');
-      setForm({ email: '', username: '', first_name: '', last_name: '' });
-    } catch (err) {
-      setError(err.detail || err.message || 'An unexpected error occurred');
-    } finally {
-      setIsSubmitting(false);
+  try {
+    await authPost('/api/students/', form);
+    Swal.fire({
+      icon: 'success',
+      title: 'Student added successfully',
+      text: 'Credentials sent via email.',
+    });
+    setForm({ email: '', username: '', first_name: '', last_name: '' });
+  } catch (error) {
+    // Try to extract a meaningful error message
+    let message = 'An unexpected error occurred';
+
+    if (error.response && error.response.data) {
+      // Axios error format
+      if (error.response.data.detail) {
+        message = error.response.data.detail;
+      } else if (typeof error.response.data === 'string') {
+        message = error.response.data;
+      } else if (typeof error.response.data === 'object') {
+        // Sometimes errors come as objects with field keys
+        message = Object.values(error.response.data).flat().join(' ') || message;
+      }
+    } else if (error.detail) {
+      message = error.detail;
+    } else if (error.message) {
+      message = error.message;
     }
-  };
+
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: message,
+    });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   return (
     <div className="form-container">
       <h2>Add New Student</h2>
-      
-      {message && <div className="success-message">{message}</div>}
-      {error && <div className="error-message">{error}</div>}
-      
+
       <form onSubmit={handleSubmit}>
         <div className="form-group">
           <label htmlFor="email">Email*</label>
@@ -98,8 +117,8 @@ export default function AddStudent() {
           />
         </div>
 
-        <button 
-          type="submit" 
+        <button
+          type="submit"
           disabled={isSubmitting}
           className={`submit-btn ${isSubmitting ? 'submitting' : ''}`}
         >
@@ -111,7 +130,7 @@ export default function AddStudent() {
         </button>
       </form>
 
-      <style jsx>{`
+      <style>{`
         .form-container {
           padding: 1.5rem;
           max-width: 500px;
@@ -192,24 +211,6 @@ export default function AddStudent() {
         
         @keyframes spin {
           to { transform: rotate(360deg); }
-        }
-        
-        .success-message {
-          background-color: #d4edda;
-          color: #155724;
-          padding: 1rem;
-          border-radius: 4px;
-          margin-bottom: 1.5rem;
-          text-align: center;
-        }
-        
-        .error-message {
-          background-color: #f8d7da;
-          color: #721c24;
-          padding: 1rem;
-          border-radius: 4px;
-          margin-bottom: 1.5rem;
-          text-align: center;
         }
         
         /* Responsive adjustments */
