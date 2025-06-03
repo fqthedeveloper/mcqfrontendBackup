@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/authContext";
+import { useAuth} from "../../context/authContext";
+import { baseURL } from "../../services/api";
 import "../CSS/Login.css";
+
 
 export default function Login() {
   const [usernameOrEmail, setUsernameOrEmail] = useState("");
@@ -17,7 +19,7 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/login/", {
+      const res = await fetch(`${baseURL}/api/login/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -1,17 +1,18 @@
+// src/components/ExamForm.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import {
+  authGet,
+  authPut,
+  authPost,
+} from '../../services/api';
 import { FaTrash, FaArrowUp, FaArrowDown, FaPaperPlane } from 'react-icons/fa';
-import { useAuth } from '../../context/authContext';
 import Swal from 'sweetalert2';
 import '../CSS/ExamForm.css';
 
 const ExamForm = ({ isEdit = false }) => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { token } = useAuth();
-
-  const authToken = token || localStorage.getItem("access_token");
 
   const [exam, setExam] = useState({
     title: '',
@@ -21,7 +22,8 @@ const ExamForm = ({ isEdit = false }) => {
     start_time: '',
     end_time: '',
     selected_questions: [],
-    notification_message: 'A new exam has been scheduled. Please check your dashboard for details.'
+    notification_message:
+      'A new exam has been scheduled. Please check your dashboard for details.',
   });
 
   const [allQuestions, setAllQuestions] = useState([]);
@@ -29,30 +31,25 @@ const ExamForm = ({ isEdit = false }) => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState({ subject: '', search: '' });
   const [isPublished, setIsPublished] = useState(false);
+  
 
   useEffect(() => {
     document.title = isEdit ? 'Edit Exam' : 'Add Exam';
   }, [isEdit]);
 
-  const showSuccess = (message) => {
+  const showSuccess = (message) =>
     Swal.fire({
       icon: 'success',
       title: 'Success!',
       text: message,
       timer: 3000,
-      showConfirmButton: false
+      showConfirmButton: false,
     });
-  };
 
-  const showError = (message) => {
-    Swal.fire({
-      icon: 'error',
-      title: 'Error!',
-      text: message
-    });
-  };
+  const showError = (message) =>
+    Swal.fire({ icon: 'error', title: 'Error!', text: message });
 
-  const showConfirmation = (title, text, confirmText, callback) => {
+  const showConfirmation = (title, text, confirmText, callback) =>
     Swal.fire({
       title,
       text,
@@ -60,52 +57,53 @@ const ExamForm = ({ isEdit = false }) => {
       showCancelButton: true,
       confirmButtonColor: '#3085d6',
       cancelButtonColor: '#d33',
-      confirmButtonText: confirmText
-    }).then(result => {
-      if (result.isConfirmed) {
-        callback();
-      }
+      confirmButtonText: confirmText,
+    }).then((result) => {
+      if (result.isConfirmed) callback();
     });
-  };
 
   const fetchData = async () => {
     try {
       setLoading(true);
 
-      const questionsRes = await axios.get('http://127.0.0.1:8000/api/questions/', {
-        headers: { Authorization: `Token ${authToken}` }
-      });
-
-      const subjectsRes = await axios.get('http://127.0.0.1:8000/api/subjects/', {
-        headers: { Authorization: `Token ${authToken}` }
-      });
-
-      const subjectsData = subjectsRes.data;
+      // 1) Fetch all questions (with a large page_size to avoid pagination issues)
+      const questionsRes = await authGet('/api/questions/?page_size=1000');
       let questionsData = questionsRes.data;
+      // If paginated:
+      if (questionsData.results) {
+        questionsData = questionsData.results;
+      }
 
-      questionsData = questionsData.map(question => {
-        if (question.subject && typeof question.subject === 'object') {
-          return question;
+      // 2) Fetch subjects
+      const subjectsRes = await authGet('/api/subjects/');
+      const subjectsData = subjectsRes.data;
+
+      // Normalize question.subject into a full object if needed
+      questionsData = questionsData.map((q) => {
+        if (q.subject && typeof q.subject === 'object') {
+          return q;
         }
-        const subjVal = question.subject || '';
-        const foundSubject = subjectsData.find(
-          sub => sub.name.trim().toLowerCase() === subjVal.trim().toLowerCase()
+        const subjVal = q.subject || '';
+        const found = subjectsData.find(
+          (sub) => sub.name.trim().toLowerCase() === subjVal.trim().toLowerCase()
         );
-        return {
-          ...question,
-          subject: foundSubject || null
-        };
+        return { ...q, subject: found || null };
       });
 
       setAllQuestions(questionsData);
       setSubjects(subjectsData);
 
+      // 3) If editing, fetch the existing exam
       if (isEdit && id) {
-        const examRes = await axios.get(`http://127.0.0.1:8000/api/exams/${id}/`, {
-          headers: { Authorization: `Token ${authToken}` }
-        });
+        const examRes = await authGet(`/api/exams/${id}/`);
         const examData = examRes.data;
         setIsPublished(examData.is_published);
+
+        // examData.questions is an array of objects like:
+        // { id: 803, order: 0, question: { id: 391, text: "...", ... } }
+        // We want an array of the **inner** question.id (e.g. 391, 392, etc.)
+        const selectedIds = examData.questions.map((q) => q.question.id);
+
         setExam({
           title: examData.title || '',
           subject: examData.subject || '',
@@ -113,16 +111,15 @@ const ExamForm = ({ isEdit = false }) => {
           duration: examData.duration || 60,
           start_time: examData.start_time ? examData.start_time.slice(0, 16) : '',
           end_time: examData.end_time ? examData.end_time.slice(0, 16) : '',
-          selected_questions: examData.questions
-            ? examData.questions.map(q => q.id)
-            : [],
+          selected_questions: selectedIds,
           notification_message:
             examData.notification_message ||
-            'A new exam has been scheduled. Please check your dashboard for details.'
+            'A new exam has been scheduled. Please check your dashboard for details.',
         });
       }
     } catch (err) {
-      // handle error silently or show error if needed
+      console.error('Error fetching data:', err);
+      showError('Failed to load exam data. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -130,20 +127,20 @@ const ExamForm = ({ isEdit = false }) => {
 
   useEffect(() => {
     fetchData();
-  }, [id, isEdit, authToken]);
+  }, [id, isEdit]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setExam(prev => ({ ...prev, [name]: value }));
+    setExam((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
-    setFilter(prev => ({ ...prev, [name]: value }));
+    setFilter((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleQuestionSelect = (questionId) => {
-    setExam(prev => {
+    setExam((prev) => {
       const idx = prev.selected_questions.indexOf(questionId);
       const updated = [...prev.selected_questions];
       if (idx > -1) {
@@ -156,34 +153,39 @@ const ExamForm = ({ isEdit = false }) => {
   };
 
   const handleMoveQuestion = (index, direction) => {
-    setExam(prev => {
+    setExam((prev) => {
       const list = [...prev.selected_questions];
-      const targetIdx = direction === 'up' ? index - 1 : index + 1;
-      if (targetIdx >= 0 && targetIdx < list.length) {
-        [list[index], list[targetIdx]] = [list[targetIdx], list[index]];
+      const swapWith = direction === 'up' ? index - 1 : index + 1;
+      if (swapWith >= 0 && swapWith < list.length) {
+        [list[index], list[swapWith]] = [list[swapWith], list[index]];
       }
       return { ...prev, selected_questions: list };
     });
   };
 
-  const filteredQuestions = allQuestions.filter(q => {
-    const subjectMatch = filter.subject
-      ? q.subject
-        ? String(q.subject.id) === filter.subject
-        : false
-      : true;
-    const searchMatch = filter.search
-      ? q.text.toLowerCase().includes(filter.search.toLowerCase())
-      : true;
-    return subjectMatch && searchMatch;
-  });
+  const filteredQuestions = allQuestions.filter((q) => {
+  // 1) Exclude already‐selected
+  if (exam.selected_questions.includes(q.id)) {
+    return false;
+  }
+  // 2) Filter by subject, if provided
+  const subjectMatch = filter.subject
+    ? String(q.subject?.id) === filter.subject
+    : true;
+  // 3) Search text
+  const searchMatch = filter.search
+    ? q.text.toLowerCase().includes(filter.search.toLowerCase())
+    : true;
+  return subjectMatch && searchMatch;
+});
 
   const selectedQuestionDetails = exam.selected_questions
-    .map(id => allQuestions.find(q => q.id === id))
+    .map((id) => allQuestions.find((q) => q.id === id))
     .filter(Boolean);
 
   const performSubmit = async (publish) => {
     try {
+      // Payload keys must match what your DRF expects:
       const payload = {
         title: exam.title,
         subject: exam.subject,
@@ -191,51 +193,37 @@ const ExamForm = ({ isEdit = false }) => {
         duration: exam.duration,
         start_time: exam.start_time,
         end_time: exam.end_time,
-        selected_questions: exam.selected_questions,
+        // The backend expects “questions” = [array of question‐IDs]
+        questions: exam.selected_questions,
         notification_message: exam.notification_message,
-        is_published: publish || isPublished
+        is_published: publish || isPublished,
       };
 
       let response;
       if (isEdit) {
-        response = await axios.put(
-          `http://127.0.0.1:8000/api/exams/${id}/`,
-          payload,
-          {
-            headers: { Authorization: `Token ${authToken}` }
-          }
-        );
+        response = await authPut(`/api/exams/${id}/`, payload);
       } else {
-        response = await axios.post(
-          'http://127.0.0.1:8000/api/exams/',
-          payload,
-          {
-            headers: { Authorization: `Token ${authToken}` }
-          }
-        );
+        response = await authPost('/api/exams/', payload);
       }
 
       if (publish && !isPublished) {
-        await axios.post(
-          `http://127.0.0.1:8000/api/exams/${response.data.id}/publish/`,
-          { message: exam.notification_message },
-          {
-            headers: { Authorization: `Token ${authToken}` }
-          }
+        await authPost(
+          `/api/exams/${response.data.id}/publish/`,
+          { message: exam.notification_message }
         );
         setIsPublished(true);
       }
 
       showSuccess(`Exam ${isEdit ? 'updated' : 'created'} successfully!`);
-      setTimeout(() => navigate('/admin/exams'), 2000);
+      setTimeout(() => navigate('/admin/exams'), 1500);
     } catch (err) {
-      // handle error silently or show error if needed
+      console.error('Error saving exam:', err);
+      showError('Failed to save exam. Please try again.');
     }
   };
 
   const handleSubmit = async (e, publish = false) => {
     e.preventDefault();
-
     if (exam.selected_questions.length === 0) {
       showError('Please select at least one question');
       return;
@@ -246,10 +234,10 @@ const ExamForm = ({ isEdit = false }) => {
         'Publish Exam?',
         'This will notify all students. Are you sure you want to publish this exam?',
         'Yes, publish it!',
-        () => performSubmit(publish)
+        () => performSubmit(true)
       );
     } else {
-      performSubmit(publish);
+      performSubmit(false);
     }
   };
 
@@ -265,7 +253,8 @@ const ExamForm = ({ isEdit = false }) => {
     <div className="exam-form-container">
       <h2>{isEdit ? 'Edit Exam' : 'Create New Exam'}</h2>
 
-      <form onSubmit={e => handleSubmit(e, false)}>
+      <form onSubmit={(e) => handleSubmit(e, false)}>
+        {/* ───────── Exam Details ───────── */}
         <div className="form-section">
           <h3>Exam Details</h3>
           <div className="form-grid">
@@ -290,7 +279,7 @@ const ExamForm = ({ isEdit = false }) => {
                 required
               >
                 <option value="">Select Subject</option>
-                {subjects.map(subject => (
+                {subjects.map((subject) => (
                   <option key={subject.id} value={subject.id}>
                     {subject.name}
                   </option>
@@ -345,6 +334,7 @@ const ExamForm = ({ isEdit = false }) => {
           </div>
         </div>
 
+        {/* ───────── Notification Message ───────── */}
         <div className="form-section">
           <h3>Notification Message</h3>
           <div className="form-group">
@@ -358,6 +348,7 @@ const ExamForm = ({ isEdit = false }) => {
           </div>
         </div>
 
+        {/* ───────── Question Selection ───────── */}
         <div className="form-section">
           <div className="section-header">
             <h3>Select Questions</h3>
@@ -375,9 +366,9 @@ const ExamForm = ({ isEdit = false }) => {
                 onChange={handleFilterChange}
               >
                 <option value="">All Subjects</option>
-                {subjects.map(subject => (
-                  <option key={subject.id} value={subject.id}>
-                    {subject.name}
+                {subjects.map((sub) => (
+                  <option key={sub.id} value={sub.id}>
+                    {sub.name}
                   </option>
                 ))}
               </select>
@@ -396,22 +387,23 @@ const ExamForm = ({ isEdit = false }) => {
           </div>
 
           <div className="question-lists-container">
+            {/* ─ Available Questions ─ */}
             <div className="question-list available-questions">
               <h4>Available Questions ({filteredQuestions.length})</h4>
               <div className="form-group">
                 <label>
                   <input
                     type="checkbox"
-                    onChange={e => {
+                    onChange={(e) => {
                       if (e.target.checked) {
                         const top100 = filteredQuestions
                           .slice(0, 100)
-                          .map(q => q.id);
-                        setExam(prev => ({
+                          .map((q) => q.id);
+                        setExam((prev) => ({
                           ...prev,
                           selected_questions: Array.from(
                             new Set([...prev.selected_questions, ...top100])
-                          )
+                          ),
                         }));
                       }
                     }}
@@ -421,39 +413,44 @@ const ExamForm = ({ isEdit = false }) => {
               </div>
 
               <div className="questions-container">
-                {filteredQuestions.map(question => (
-                  <div
-                    key={question.id}
-                    className={`question-item ${
-                      exam.selected_questions.includes(question.id)
-                        ? 'selected'
-                        : ''
-                    }`}
-                    onClick={() => handleQuestionSelect(question.id)}
-                  >
-                    <div className="question-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={exam.selected_questions.includes(question.id)}
-                        onChange={() => handleQuestionSelect(question.id)}
-                      />
-                    </div>
-                    <div className="question-content">
-                      <div className="question-text">{question.text}</div>
-                      <div className="question-meta">
-                        <span>
-                          Subject: {question.subject?.name || 'N/A'}
-                        </span>
-                        <span>Marks: {question.marks}</span>
+                {filteredQuestions.length > 0 ? (
+                  filteredQuestions.map((question) => (
+                    <div
+                      key={question.id}
+                      className={`question-item ${
+                        exam.selected_questions.includes(question.id)
+                          ? 'selected'
+                          : ''
+                      }`}
+                      onClick={() => handleQuestionSelect(question.id)}
+                    >
+                      <div className="question-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={exam.selected_questions.includes(question.id)}
+                          onChange={() => handleQuestionSelect(question.id)}
+                        />
+                      </div>
+                      <div className="question-content">
+                        <div className="question-text">{question.text}</div>
+                        <div className="question-meta">
+                          <span>
+                            Subject: {question.subject?.name || 'N/A'}
+                          </span>
+                          <span>Marks: {question.marks}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p>No questions available</p>
+                )}
               </div>
             </div>
 
+            {/* ─ Selected Questions ─ */}
             <div className="question-list selected-questions">
-              <h4>Selected Questions</h4>
+              <h4>Selected Questions ({selectedQuestionDetails.length})</h4>
               <div className="questions-container">
                 {selectedQuestionDetails.length > 0 ? (
                   selectedQuestionDetails.map((question, index) => (
@@ -501,6 +498,7 @@ const ExamForm = ({ isEdit = false }) => {
           </div>
         </div>
 
+        {/* ───────── Save & Publish Buttons ───────── */}
         <div className="form-buttons">
           <button type="submit" className="btn btn-primary">
             Save Exam
@@ -508,7 +506,7 @@ const ExamForm = ({ isEdit = false }) => {
           <button
             type="button"
             className="btn btn-success"
-            onClick={e => handleSubmit(e, true)}
+            onClick={(e) => handleSubmit(e, true)}
             disabled={isPublished}
           >
             <FaPaperPlane /> {isPublished ? 'Published' : 'Publish Exam'}

@@ -1,4 +1,4 @@
-// src/components/Auth/PasswordReset.js
+
 import React, { useState } from 'react';
 import { resetPassword } from '../../services/auth'; // Fixed import
 
