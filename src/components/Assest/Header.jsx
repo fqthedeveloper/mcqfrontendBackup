@@ -27,7 +27,7 @@ export default function Header() {
     <header className="main-header">
       <div className="container header-container">
         <div className="logo">
-          <Link to="/">IRT MCQ App</Link>
+          <Link to="/">IRT MCQ</Link>
         </div>
 
         <div className={`nav-links ${menuOpen ? 'active' : ''}`}>
@@ -44,7 +44,7 @@ export default function Header() {
             <>
               <Link to="/student">Dashboard</Link>
               <Link to="/student/exam-list">Exams</Link>
-              <Link to="/student/results">My Results</Link>
+              <Link to="/student/results/">My Results</Link>
             </>
           )}
 

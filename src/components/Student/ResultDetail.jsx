@@ -3,7 +3,6 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { authGet } from '../../services/api';
 import '../CSS/Result.css';
-import { Link } from 'react-router-dom';
 
 export default function ResultDetail() {
   const { sessionId } = useParams();
@@ -160,7 +159,7 @@ export default function ResultDetail() {
       </div>
 
       <div className="result-footer">
-        <Link to="/student" className="dashboard-btn">Back to Dashboard</Link>
+        <button className="dashboard-btn">Back to Dashboard</button>
       </div>
     </div>
   );
