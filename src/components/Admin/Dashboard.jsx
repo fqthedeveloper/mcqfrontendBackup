@@ -68,6 +68,23 @@ export default function Dashboard() {
               <h3>All Student Result List</h3>
               <p>See all Student Exam Result</p>
             </Link>
+
+            <Link to="/admin/add-task" className="card">
+              <div className="card-icon">
+                <i className="fa-solid fa-chart-bar"></i>
+              </div>
+              <h3>Add Practical Task</h3>
+              <p>Add Practical Question and Task</p>
+            </Link>
+
+            <Link to="/admin/task-list" className="card">
+              <div className="card-icon">
+                <i className="fa-solid fa-chart-bar"></i>
+              </div>
+              <h3>See All Task List</h3>
+              <p>See and Edit All Practicl Task.</p>
+            </Link>
+
           </>
         ) : (
           <>
@@ -86,6 +103,9 @@ export default function Dashboard() {
               <h3>My Results</h3>
               <p>View your past exam results.</p>
             </Link>
+
+            
+
           </>
         )}
       </div>

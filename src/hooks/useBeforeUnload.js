@@ -1,19 +1,17 @@
-// src/hooks/useBeforeUnload.js
-
 import { useEffect } from 'react';
 
-export default function useBeforeUnload(callback) {
+export default function useBeforeUnload(handler) {
   useEffect(() => {
-    function handleBeforeUnload(e) {
-      callback();
-      // Optionally prevent default to show “Are you sure?” prompt:
-      // e.preventDefault();
-      // e.returnValue = '';
-    }
+    const handleBeforeUnload = (e) => {
+      handler();
+      const message = "You have unsaved changes. Are you sure you want to leave?";
+      e.returnValue = message;
+      return message;
+    };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [callback]);
+  }, [handler]);
 }

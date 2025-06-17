@@ -1,19 +1,12 @@
-// src/api.js
-import axios from 'axios';
+export const baseURL = 'http://localhost:8000';
 
-export const baseURL = 'http://localhost:8000'; 
+// Token management
+export const getAccessToken = () => localStorage.getItem('access_token');
+export const getRefreshToken = () => localStorage.getItem('refresh_token');
+export const saveAccessToken = (token) => localStorage.setItem('access_token', token);
+export const saveRefreshToken = (token) => localStorage.setItem('refresh_token', token);
+export const saveUser = (user) => localStorage.setItem('user', JSON.stringify(user));
 
-// Create an Axios instance with baseURL
-const axiosInstance = axios.create({
-  baseURL,
-});
-
-// Utility to get tokens from localStorage
-const getAccessToken = () => localStorage.getItem('access_token');
-const getRefreshToken = () => localStorage.getItem('refresh_token');
-const saveAccessToken = (token) => localStorage.setItem('access_token', token);
-
-// If you want to log the user out on token expiry:
 export const logoutUser = () => {
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
@@ -21,66 +14,168 @@ export const logoutUser = () => {
   window.location.href = '/login';
 };
 
-// Interceptor to attach “Token <access_token>” header to every request
-axiosInstance.interceptors.request.use(
-  (config) => {
-    const token = getAccessToken();
-    if (token) {
-      config.headers.Authorization = `Token ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+const getAuthHeaders = () => {
+  const token = getAccessToken();
+  return token ? { Authorization: `Token ${token}` } : {};
+};
 
-// Optional: Response interceptor to catch 401 and try refresh
-axiosInstance.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-    if (
-      error.response?.status === 401 &&
-      !originalRequest._retry &&
-      getRefreshToken()
-    ) {
-      originalRequest._retry = true;
-      try {
-        // Attempt to refresh
-        const refresh = getRefreshToken();
-        const { data } = await axios.post(
-          `${baseURL}/api/token/refresh/`,
-          { refresh }
-        );
-        saveAccessToken(data.access);
-        // Retry original request with new token
-        originalRequest.headers.Authorization = `Token ${data.access}`;
-        return axiosInstance(originalRequest);
-      } catch (refreshErr) {
-        logoutUser();
-        return Promise.reject(refreshErr);
-      }
-    }
-    return Promise.reject(error);
+const refreshAccessToken = async () => {
+  const refresh = getRefreshToken();
+  if (!refresh) throw new Error('No refresh token available');
+
+  const res = await fetch(`${baseURL}/api/token/refresh/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh }),
+  });
+
+  if (!res.ok) throw new Error('Token refresh failed');
+  const data = await res.json();
+  saveAccessToken(data.access);
+  return data.access;
+};
+
+const fetchWithAuthRetry = async (url, options = {}, retry = true) => {
+  const headers = getAuthHeaders();
+  const requestOptions = {
+    ...options,
+    headers: {
+      ...options.headers,
+      ...headers,
+    },
+  };
+
+  let res;
+  try {
+    res = await fetch(url, requestOptions);
+  } catch (err) {
+    throw new Error('Network error');
   }
-);
 
-// --- Exported Helpers ---
+  if (res.ok) return res;
 
-// Unauthenticated GET/POST (no token attached)
-export const get = (endpoint) => axios.get(`${baseURL}${endpoint}`);
-export const post = (endpoint, payload) =>
-  axios.post(`${baseURL}${endpoint}`, payload);
+  const errorData = await res.json().catch(() => ({}));
+  const detail = errorData.detail || '';
 
-// Authenticated calls via axiosInstance
-export const authGet = (endpoint) => axiosInstance.get(endpoint);
-export const authPost = (endpoint, payload) => axiosInstance.post(endpoint, payload);
-export const authPut = (endpoint, payload) => axiosInstance.put(endpoint, payload);
-export const authDelete = (endpoint) => axiosInstance.delete(endpoint);
+  // If 401 and the error is token-related, try to refresh
+  if (res.status === 401 && detail.toLowerCase().includes('token') && retry) {
+    try {
+      const newAccessToken = await refreshAccessToken();
+      // Update the Authorization header with the new token
+      requestOptions.headers.Authorization = `Token ${newAccessToken}`;
+      // Retry the request with the new token
+      res = await fetch(url, requestOptions);
+      if (res.ok) return res;
+    } catch (refreshError) {
+      // Refresh failed, logout the user
+      logoutUser();
+      throw new Error('Session expired. Please log in again.');
+    }
+  }
 
-// Domain‐specific helpers (optional)
-export const getExam = (examId) => authGet(`/api/exams/${examId}/`);
-export const createExamSession = (data) => authPost('/api/exam-sessions/', data);
-export const submitAnswers = (payload) => authPost('/api/submit-answers/', payload);
-export const checkExamSubmission = (examId, userId) =>
-  authGet(`/api/exams/${examId}/submitted/${userId}/`);
-export const getResult = (resultId) => get(`/api/results/${resultId}/`);
+  // If we are here, the request failed and we don't want to retry or refresh didn't help
+  const errMsg = errorData.non_field_errors?.[0] || detail || 'Unknown error';
+  throw new Error(errMsg);
+};
+
+// Public API methods (without auth)
+export const get = async (endpoint) => {
+  const res = await fetch(`${baseURL}${endpoint}`);
+  if (!res.ok) throw new Error((await res.json())?.detail || 'Unknown error');
+  return res.json();
+};
+
+export const post = async (endpoint, data) => {
+  const res = await fetch(`${baseURL}${endpoint}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) throw new Error((await res.json())?.detail || 'Unknown error');
+  return res.json();
+};
+
+// Authenticated API methods
+export const authGet = async (endpoint) => {
+  const res = await fetchWithAuthRetry(`${baseURL}${endpoint}`);
+  return res.json();
+};
+
+export const authPost = async (endpoint, data) => {
+  const res = await fetchWithAuthRetry(`${baseURL}${endpoint}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+};
+
+export const authPut = async (endpoint, data) => {
+  const res = await fetchWithAuthRetry(`${baseURL}${endpoint}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  return res.json();
+};
+
+export const authDelete = async (endpoint) => {
+  const res = await fetchWithAuthRetry(`${baseURL}${endpoint}`, {
+    method: 'DELETE',
+  });
+  if (res.status === 204) return;
+  return res.json();
+};
+
+export const authPostFormData = async (endpoint, formData) => {
+  // Note: Do not set Content-Type for FormData, the browser will set it with the correct boundary
+  const res = await fetchWithAuthRetry(`${baseURL}${endpoint}`, {
+    method: 'POST',
+    body: formData,
+  });
+  return res.json();
+};
+
+// Login and auth methods
+export const loginUser = async (credentials) => {
+  try {
+    const response = await fetch(`${baseURL}/api/login/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(credentials),
+    });
+
+    const responseData = await response.json();
+
+    if (!response.ok) {
+      const errorMsg =
+        responseData.non_field_errors?.[0] ||
+        responseData.detail ||
+        'Login failed';
+      throw new Error(errorMsg);
+    }
+
+    // Store tokens and user data
+    saveAccessToken(responseData.access);
+    saveRefreshToken(responseData.refresh);
+    saveUser(responseData.user);
+
+    return responseData;
+  } catch (error) {
+    throw new Error(error.message || 'An error occurred during login');
+  }
+};
+
+export const resetPassword = async (email) => {
+  return post('/api/reset-password/', { email });
+};
+
+export const changePassword = async (newPassword, confirmPassword) => {
+  return authPost('/api/change-password/', {
+    new_password: newPassword,
+    confirm_password: confirmPassword,
+  });
+};

@@ -4,25 +4,31 @@ import { useExam } from '../../context/examContext';
 import '../CSS/ExamList.css';
 
 export default function ExamList() {
-  const { exams, fetchExams, startExam, loading, error } = useExam();
+  const { exams, sessions, fetchExams, startExam, loading, error } = useExam();
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchExams();
   }, []);
 
-  useEffect(() => {
-    document.title = 'Available Exams';
-  }, []);
-
-  const handleStartExam = (exam) => {
-    if (!exam || !exam.id) {
-      console.error('Invalid exam object:', exam);
-      return;
+  const handleStartExam = async (exam) => {
+    try {
+      // Check for existing session first
+      const existingSession = sessions.find(s => 
+        s.exam === exam.id && !s.is_completed
+      );
+      
+      const session = existingSession || await startExam(exam);
+      
+      if (exam.mode === 'strict') {
+        navigate(`/student/exam/${session.id}`);
+      } else if (exam.mode === 'practical') {
+        navigate(`/student/practical/${session.id}?exam_id=${exam.id}`);
+      }
+    } catch (err) {
+      console.error('Failed to start exam:', err);
+      alert(`Failed to start exam: ${err.message}`);
     }
-
-    startExam(exam);
-    navigate(`/student/exam/${exam.id}`, { state: { exam } });
   };
 
   const formatDuration = (minutes) => {
@@ -30,6 +36,14 @@ export default function ExamList() {
     const hours = Math.floor(minutes / 60);
     const remainingMinutes = minutes % 60;
     return `${hours}h ${remainingMinutes}min`;
+  };
+
+  const getButtonLabel = (mode) => {
+    return mode === 'strict' ? 'Start Strict Exam' : 'Start Practical Exam';
+  };
+
+  const getButtonClass = (mode) => {
+    return mode === 'strict' ? 'strict-exam-btn' : 'practical-exam-btn';
   };
 
   return (
@@ -82,7 +96,12 @@ export default function ExamList() {
                   </div>
                   <div className="detail-item">
                     <span className="detail-label">Questions:</span>
-                    <span className="detail-value">{exam.question_count || exam.questions?.length || 'N/A'}</span>
+                    <span className="detail-value">
+                      {exam.mode === 'practical' 
+                        ? exam.question_count || exam.questions?.length || 'N/A'
+                        : exam.questions?.length || 'N/A'
+                      }
+                    </span>
                   </div>
                   <div className="detail-item">
                     <span className="detail-label">Type Mode:</span>
@@ -94,9 +113,18 @@ export default function ExamList() {
                   </div>
                 </div>
 
-                <button className="start-exam-btn" onClick={() => handleStartExam(exam)}>
-                  Start Exam <span className="btn-icon">➔</span>
+                <button 
+                  className={`start-exam-btn ${getButtonClass(exam.mode)}`}
+                  onClick={() => handleStartExam(exam)}
+                >
+                  {getButtonLabel(exam.mode)}
                 </button>
+                
+                {exam.mode === 'practical' && (
+                  <div className="practical-note">
+                    <span>⚠️ Note: Practical exams require a terminal session</span>
+                  </div>
+                )}
               </div>
             ))}
         </div>
@@ -108,6 +136,9 @@ export default function ExamList() {
           <li>Ensure you have a stable internet connection</li>
           <li>Find a quiet environment for your exam</li>
           <li>Have all necessary materials ready before starting</li>
+          {exams.some(exam => exam.mode === 'practical') && (
+            <li>For practical exams, commands are executed in a secure environment</li>
+          )}
         </ul>
       </div>
     </div>

@@ -1,81 +1,55 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { authGet } from '../services/api';
+import { authGet, authPost } from '../services/api';
 
 const ExamContext = createContext();
 
-export function useExam() {
-  return useContext(ExamContext);
-}
-
-export function ExamProvider({ children }) {
+export const ExamProvider = ({ children }) => {
   const [exams, setExams] = useState([]);
-  const [currentExam, setCurrentExam] = useState(null);
-  const [results, setResults] = useState([]);
+  const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [examContextReady, setExamContextReady] = useState(false);
-
-  useEffect(() => {
-    const savedExam = localStorage.getItem('currentExam');
-    if (savedExam) {
-      try {
-        const parsedExam = JSON.parse(savedExam);
-        setCurrentExam(parsedExam);
-      } catch (e) {
-        console.error('Failed to parse saved exam:', e);
-        localStorage.removeItem('currentExam');
-      }
-    }
-    setExamContextReady(true);
-  }, []);
-
-  useEffect(() => {
-    if (currentExam) {
-      localStorage.setItem('currentExam', JSON.stringify(currentExam));
-    } else {
-      localStorage.removeItem('currentExam');
-    }
-  }, [currentExam]);
 
   const fetchExams = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      setError(null);
-      const response = await authGet('/api/exams/');
-      setExams(response);
-      return response;
-    } catch (error) {
-      setError('Failed to load exams. Please try again later.');
-      console.error('Failed to fetch exams:', error);
-      throw error;
+      const examsResponse = await authGet('/api/exams/');
+      setExams(examsResponse);
+      
+      try {
+        const sessionsResponse = await authGet('/api/sessions/');
+        setSessions(sessionsResponse);
+      } catch (sessionsError) {
+        console.warn('Could not fetch sessions:', sessionsError);
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to load exams');
     } finally {
       setLoading(false);
     }
   };
 
-  const startExam = (exam) => {
-    setCurrentExam(exam);
-  };
-
-  const submitExam = (answers) => {
-    if (currentExam) {
-      setResults([...results, { examId: currentExam.id, answers }]);
+  const startExam = async (exam) => {
+    try {
+      const response = await authPost('/api/sessions/validate-exam/', { exam: exam.id });
+      return response;
+    } catch (err) {
+      throw new Error(err.message || 'Failed to start exam');
     }
-    setCurrentExam(null);
   };
 
-  const value = {
-    exams,
-    currentExam,
-    results,
-    loading,
-    error,
-    fetchExams,
-    startExam,
-    submitExam,
-    setCurrentExam,
-    examContextReady
-  };
+  return (
+    <ExamContext.Provider value={{
+      exams,
+      sessions,
+      loading,
+      error,
+      fetchExams,
+      startExam
+    }}>
+      {children}
+    </ExamContext.Provider>
+  );
+};
 
-  return <ExamContext.Provider value={value}>{children}</ExamContext.Provider>;
-}
+export const useExam = () => useContext(ExamContext);

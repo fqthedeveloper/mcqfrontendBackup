@@ -28,6 +28,8 @@ import QuestionUpload from "./components/Admin/QuestionUpload";
 import ExamForm from "./components/Admin/ExamForm";
 import AdminExamList from "./components/Admin/AdminExamList";
 import AdminResultList from "./components/Admin/AdminResultList";
+import PracticalTaskList from "./components/Admin/PracticalTaskList";
+import PracticalTaskForm from "./components/Admin/PracticalTaskForm"; 
 
 // Student
 import ExamList from "./components/Student/ExamList";
@@ -35,6 +37,8 @@ import Exam from "./components/Student/Exam";
 import Result from "./components/Student/Result";
 import ResultList from "./components/Student/ResultList";
 import ResultDetail from "./components/Student/ResultDetail";
+import PracticalExam from './components/Student/PracticalExam';
+
 
 import "./App.css";
 
@@ -214,6 +218,36 @@ function App() {
                 }
               />
 
+              <Route
+                path="/admin/task-list"
+                element={
+                  <ProtectedRoute
+                    element={<PracticalTaskList  />}
+                    allowedRoles={["admin"]}
+                  />
+                }
+              />
+
+              <Route
+                path="/admin/add-task"
+                element={
+                  <ProtectedRoute
+                    element={<PracticalTaskForm   />}
+                    allowedRoles={["admin"]}
+                  />
+                }
+              />
+
+              <Route
+                path="/admin/edit-task/:id"
+                element={
+                  <ProtectedRoute
+                    element={<PracticalTaskForm isEdit={true}  />}
+                    allowedRoles={["admin"]}
+                  />
+                }
+              />
+
               {/* Student routes */}
               <Route
                 path="/student"
@@ -242,6 +276,7 @@ function App() {
                   />
                 }
               />
+
               <Route
                 path="/student/results/:sessionId"
                 element={
@@ -261,16 +296,27 @@ function App() {
                 } 
               />
 
-              {/* Shared result detail route for both roles */}
               <Route
-                path="/results/session/:sessionId"
+                path="/student/results/:sessionId"
                 element={
                   <ProtectedRoute
-                    element={<ResultDetail />}
-                    allowedRoles={["admin", "student"]}
+                    element={<Result />}
+                    allowedRoles={["student"]}
                   />
                 }
               />
+              
+              <Route
+                path="/student/practical/:sessionId"
+                element={
+                  <ProtectedRoute
+                    element={<PracticalExam />}
+                    allowedRoles={["student"]}
+                  />
+                }
+              />
+
+              
 
               {/* Default routes */}
               <Route path="/" element={<Navigate to="/login" replace />} />

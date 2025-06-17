@@ -274,3 +274,137 @@
     font-size: 1.6rem;
   }
 }
+
+/* ExamList.css additions */
+.exam-mode-options {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 10px 0;
+  border: none;
+  border-radius: 5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.strict-mode {
+  background-color: #e74c3c;
+  color: white;
+}
+
+.strict-mode:hover {
+  background-color: #c0392b;
+}
+
+.practical-mode {
+  background-color: #3498db;
+  color: white;
+}
+
+.practical-mode:hover {
+  background-color: #2980b9;
+}
+
+.mode-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: white;
+  padding: 25px;
+  border-radius: 10px;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.exam-confirm-details {
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-radius: 5px;
+  margin: 15px 0;
+}
+
+.mode-warnings {
+  background-color: #fff3cd;
+  padding: 15px;
+  border-radius: 5px;
+  margin: 15px 0;
+  border-left: 4px solid #ffc107;
+}
+
+.mode-warnings strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.mode-warnings ul {
+  padding-left: 20px;
+  margin: 10px 0 0;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.btn-cancel {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-confirm {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* Button styling based on exam mode */
+.strict-exam-btn {
+  background-color: #e74c3c;
+}
+
+.strict-exam-btn:hover {
+  background-color: #c0392b;
+}
+
+.practical-exam-btn {
+  background-color: #3498db;
+}
+
+.practical-exam-btn:hover {
+  background-color: #2980b9;
+}
+
+.practical-note {
+  margin-top: 10px;
+  padding: 8px;
+  background-color: #fff3cd;
+  border-left: 4px solid #ffc107;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #856404;
+}

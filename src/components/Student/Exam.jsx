@@ -219,11 +219,11 @@ export default function Exam() {
       Swal.fire({
         icon: 'error',
         title: 'Exam Loading Error',
-        text: errorMsg,
+        text: 'You Exam Already Completed. No Retries Allowed.',
         confirmButtonText: 'Go Back',
         allowOutsideClick: false,
       }).then(() => {
-        navigate('/dashboard');
+        navigate('/student');
       });
     }
   }, [errorMsg, navigate]);
@@ -238,7 +238,7 @@ export default function Exam() {
         allowOutsideClick: false,
       }).then(() => {
         showSiteHeader();
-        navigate('/dashboard');
+        navigate('/student');
       });
     }
   }, [alreadyCompletedError, navigate]);
@@ -349,7 +349,7 @@ export default function Exam() {
   );
 
   useEffect(() => {
-    if (!examStarted || submittedRef.current) return;
+    if (!examStarted || submittedRef.current || !exam) return;
 
     let interval = null;
     if (isActive && remainingTime > 0) {
@@ -369,7 +369,7 @@ export default function Exam() {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isActive, remainingTime, totalTime, session, examStarted, finalSubmit]);
+  }, [isActive, remainingTime, totalTime, session, examStarted, exam, finalSubmit]);
 
   const handleAnswerChange = (questionId, optionId, isMulti) => {
     setAnswers((prev) => {
@@ -389,7 +389,7 @@ export default function Exam() {
   };
 
   const confirmAndSubmit = () => {
-    if (exam.mode !== 'strict') {
+    if (!exam || exam.mode !== 'strict') {
       finalSubmit();
       return;
     }
@@ -432,6 +432,8 @@ export default function Exam() {
   };
 
   const startExam = () => {
+    if (!exam) return;
+    
     if (exam.mode === 'strict') {
       Swal.fire({
         title: 'Important Instructions',
@@ -463,7 +465,7 @@ export default function Exam() {
             setRemainingTime(totalTime);
           }
         } else {
-          navigate('/dashboard');
+          navigate('/student');
         }
       });
     } else {
@@ -529,35 +531,48 @@ export default function Exam() {
       </div>
     );
   }
+  
   if (alreadyCompletedError) {
     return null;
   }
+  
   if (showStartScreen) {
     return (
       <div className="start-screen">
         <div className="start-card">
-          <h1>{exam.title}</h1>
+          <h1>{exam?.title || 'Exam'}</h1>
           <div className="exam-meta">
-            <p><strong>Duration:</strong> {exam.duration} minutes</p>
+            <p><strong>Duration:</strong> {exam?.duration || 0} minutes</p>
             <p><strong>Questions:</strong> {questions.length}</p>
-            <p><strong>Mode:</strong> {exam.mode === 'strict' ? 'Strict' : 'Practice'}</p>
+            <p><strong>Mode:</strong> {exam?.mode === 'strict' ? 'Strict' : 'Practice'}</p>
           </div>
 
-          {exam.mode === 'strict' && (
+          {exam?.mode === 'strict' && (
             <div className="instructions">
               <h2>Exam Rules:</h2>
               <ul>
                 <li>Do not navigate away during the exam</li>
                 <li>3 warnings will terminate the exam</li>
                 <li>Answers save automatically</li>
+                <li>Exam Passing Is 80%</li>
               </ul>
             </div>
           )}
 
           <button className="start-btn" onClick={startExam}>
-            {exam.mode === 'strict' ? 'Start Strict Exam' : 'Start Practice Exam'}
+            {exam?.mode === 'strict' ? 'Start Strict Exam' : 'Start Practice Exam'}
           </button>
         </div>
+      </div>
+    );
+  }
+
+  // Guard against missing exam object
+  if (!exam) {
+    return (
+      <div className="exam-loading">
+        <div className="loading-spinner"></div>
+        <p>Loading exam details...</p>
       </div>
     );
   }
