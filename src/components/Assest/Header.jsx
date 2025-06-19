@@ -27,7 +27,7 @@ export default function Header() {
     <header className="main-header">
       <div className="container header-container">
         <div className="logo">
-          <Link to="/">IRT MCQ</Link>
+          <b>IRT MCQ</b>
         </div>
 
         <div className={`nav-links ${menuOpen ? 'active' : ''}`}>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { authGet, authDelete } from '../../services/api';
 import Swal from 'sweetalert2';
-import { FaEdit, FaTrash, FaPlus } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaPlus, FaDocker } from 'react-icons/fa';
 import '../CSS/ExamForm.css';
 
 const PracticalTaskList = () => {
@@ -80,6 +80,7 @@ const PracticalTaskList = () => {
             <tr>
               <th>Title</th>
               <th>Description</th>
+              <th>Environment</th>
               <th>Marks</th>
               <th>Actions</th>
             </tr>
@@ -91,6 +92,15 @@ const PracticalTaskList = () => {
                 <td className="description-cell">
                   {task.description.length > 100 ? 
                     `${task.description.substring(0, 100)}...` : task.description}
+                </td>
+                <td className="environment-cell">
+                  {task.environment && (
+                    <div className="env-info">
+                      <FaDocker className="docker-icon" />
+                      <span>{task.environment.name}</span>
+                      <small>{task.environment.image}</small>
+                    </div>
+                  )}
                 </td>
                 <td>{task.marks}</td>
                 <td className="actions-cell">
@@ -107,7 +117,7 @@ const PracticalTaskList = () => {
               </tr>
             )) : (
               <tr>
-                <td colSpan="4" className="no-tasks">No practical tasks found</td>
+                <td colSpan="5" className="no-tasks">No practical tasks found</td>
               </tr>
             )}
           </tbody>

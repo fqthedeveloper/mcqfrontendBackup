@@ -1,3 +1,4 @@
+// ExamList.js
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExam } from '../../context/examContext';
@@ -95,11 +96,13 @@ export default function ExamList() {
                     <span className="detail-value">{formatDuration(exam.duration)}</span>
                   </div>
                   <div className="detail-item">
-                    <span className="detail-label">Questions:</span>
+                    <span className="detail-label">
+                      {exam.mode === 'practical' ? 'Tasks:' : 'Questions:'}
+                    </span>
                     <span className="detail-value">
-                      {exam.mode === 'practical' 
-                        ? exam.question_count || exam.questions?.length || 'N/A'
-                        : exam.questions?.length || 'N/A'
+                      {exam.mode === 'practical'
+                        ? exam.task_count || exam.practical_tasks?.length || 'N/A'
+                        : exam.question_count || exam.questions?.length || 'N/A'
                       }
                     </span>
                   </div>
@@ -133,6 +136,7 @@ export default function ExamList() {
       <div className="exam-tips">
         <h4>Exam Tips</h4>
         <ul>
+          <li>Exam Passing is 80% </li>
           <li>Ensure you have a stable internet connection</li>
           <li>Find a quiet environment for your exam</li>
           <li>Have all necessary materials ready before starting</li>

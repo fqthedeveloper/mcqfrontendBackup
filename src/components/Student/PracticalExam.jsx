@@ -1,3 +1,4 @@
+// PracticalExam.js
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Terminal } from 'xterm';
@@ -11,25 +12,27 @@ function PracticalExam() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  
   const [session, setSession] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [currentTask, setCurrentTask] = useState(null);
-  const [terminalOutput, setTerminalOutput] = useState('');
-  const [commandHistory, setCommandHistory] = useState([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [remainingTime, setRemainingTime] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [terminalReady, setTerminalReady] = useState(false);
+  const [verificationResult, setVerificationResult] = useState(null);
+  const [verifying, setVerifying] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState('Connecting...');
   
   const terminalRef = useRef(null);
   const terminal = useRef(null);
   const fitAddon = useRef(null);
-  const commandBuffer = useRef('');
+  const commandHistoryRef = useRef([]);
+  const historyIndexRef = useRef(-1);
+  const commandBufferRef = useRef('');
   const websocket = useRef(null);
-
-  const STORAGE_KEY_OUTPUT = `practical_${sessionId}_output`;
+  const timerRef = useRef(null);
 
   useEffect(() => {
     if (!sessionId) {
@@ -40,10 +43,8 @@ function PracticalExam() {
 
     const loadSession = async () => {
       try {
-        // Load session data
         const sessionData = await authGet(`/api/sessions/${sessionId}/`);
         
-        // Check if it's a practical exam
         if (sessionData.exam_mode !== 'practical') {
           setError('This is not a practical exam session');
           setLoading(false);
@@ -51,45 +52,31 @@ function PracticalExam() {
         }
         
         setSession(sessionData);
+        const examData = await authGet(`/api/exams/${sessionData.exam}/`);
+        setTasks(examData.practical_tasks || []);
         
-        // Extract tasks from practical_tasks array
-        const practicalTasks = sessionData.practical_tasks || [];
-        setTasks(practicalTasks);
-        
-        if (practicalTasks.length > 0) {
-          // Set first task as current
-          setCurrentTask(practicalTasks[0]);
+        if (examData.practical_tasks?.length > 0) {
+          setCurrentTask(examData.practical_tasks[0]);
         }
         
-        // Load saved terminal output
-        const savedOutput = localStorage.getItem(STORAGE_KEY_OUTPUT) || '';
-        setTerminalOutput(savedOutput);
-        
-        // Initialize terminal after DOM is ready
-        setTerminalReady(true);
-        
-        // Set up timer
-        const totalTime = sessionData.exam_duration * 60;
+        const totalTime = examData.duration * 60;
         const elapsed = sessionData.elapsed_time || 0;
         setElapsedTime(elapsed);
         setRemainingTime(totalTime - elapsed);
+        setTerminalReady(true);
         
       } catch (err) {
-        // Handle session creation if needed
         if (err.message.includes('404') || err.message.includes('400')) {
           try {
             const params = new URLSearchParams(location.search);
             const examId = params.get('exam_id');
             
             if (!examId) {
-              throw new Error('Exam ID is required to create a new session');
+              throw new Error('Exam ID is required');
             }
             
-            const newSession = await authPost('/api/sessions/validate-exam/', {
-              exam: examId
-            });
-            
-            navigate(`/student/practical/${newSession.id}?exam_id=${examId}`, { replace: true });
+            const response = await authPost('/api/sessions/validate-exam/', { exam: examId });
+            navigate(`/student/practical/${response.data.id}?exam_id=${examId}`, { replace: true });
             return;
           } catch (createErr) {
             setError(createErr.message || 'Failed to create session');
@@ -107,6 +94,7 @@ function PracticalExam() {
     return () => {
       if (websocket.current) websocket.current.close();
       if (terminal.current) terminal.current.dispose();
+      if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [sessionId, location.search, navigate]);
 
@@ -116,16 +104,42 @@ function PracticalExam() {
     }
   }, [terminalReady]);
 
+  useEffect(() => {
+    if (session && !session.is_completed) {
+      timerRef.current = setInterval(() => {
+        setElapsedTime(prev => {
+          const newTime = prev + 1;
+          setRemainingTime(session.exam_duration * 60 - newTime);
+          
+          if (newTime >= session.exam_duration * 60) {
+            submitExam();
+          }
+          
+          return newTime;
+        });
+      }, 1000);
+      
+      return () => clearInterval(timerRef.current);
+    }
+  }, [session]);
+
+  useEffect(() => {
+    return () => {
+      if (session && !session.is_completed) {
+        authPost(`/api/sessions/${session.id}/save_progress/`, {
+          elapsed_time: elapsedTime
+        });
+      }
+    };
+  }, [session, elapsedTime]);
+
   const initTerminal = () => {
     if (!terminalRef.current) return;
     
     terminal.current = new Terminal({
       cursorBlink: true,
       fontSize: 14,
-      theme: {
-        background: '#1e1e1e',
-        foreground: '#d4d4d4'
-      }
+      theme: { background: '#1e1e1e', foreground: '#d4d4d4' }
     });
     
     fitAddon.current = new FitAddon();
@@ -133,56 +147,56 @@ function PracticalExam() {
     terminal.current.open(terminalRef.current);
     fitAddon.current.fit();
     
-    terminal.current.write(terminalOutput);
-    terminal.current.write('\r\n$ ');
+    window.addEventListener('resize', () => fitAddon.current.fit());
     
-    terminal.current.onData(data => {
-      handleTerminalInput(data);
-    });
-    
+    terminal.current.write(`${connectionStatus}\r\n`);
+    terminal.current.onData(data => handleTerminalInput(data));
     initWebSocket();
   };
 
   const initWebSocket = () => {
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const token = localStorage.getItem('access_token');
-    const params = new URLSearchParams(location.search);
-    const examId = params.get('exam_id');
     
-    const wsUrl = `${wsProtocol}//${window.location.host}/ws/practical/${sessionId}/?token=${token}&exam_id=${examId || ''}`;
+    if (!session) return;
+    
+    const wsUrl = `${wsProtocol}//${window.location.host}/ws/practical/${sessionId}/?token=${token}&exam_id=${session.exam}`;
     
     websocket.current = new WebSocket(wsUrl);
     
     websocket.current.onopen = () => {
-      console.log('WebSocket connected');
+      setConnectionStatus('Connected');
+      terminal.current.write('\r\nConnected to exam environment\r\n$ ');
     };
     
     websocket.current.onmessage = (e) => {
       const data = JSON.parse(e.data);
-      if (data.type === 'command_output' || data.type === 'error') {
+      if (data.type === 'command_output') {
         terminal.current.write(data.output);
-        setTerminalOutput(prev => prev + data.output);
+      } else if (data.type === 'error') {
+        terminal.current.write(`\r\nError: ${data.message}\r\n$ `);
       }
     };
     
-    websocket.current.onerror = (err) => {
-      console.error('WebSocket error:', err);
-      setError('WebSocket connection failed');
+    websocket.current.onerror = (error) => {
+      setConnectionStatus('Connection error');
+      terminal.current.write(`\r\nWebSocket error: ${error.message || 'Unknown error'}\r\n`);
     };
     
     websocket.current.onclose = () => {
-      console.log('WebSocket closed');
+      setConnectionStatus('Disconnected');
+      terminal.current.write('\r\nConnection closed\r\n');
     };
   };
   
   const handleTerminalInput = (data) => {
     if (data === '\r') {
-      const command = commandBuffer.current.trim();
+      const command = commandBufferRef.current.trim();
       if (command) {
-        setCommandHistory(prev => [command, ...prev]);
-        setHistoryIndex(-1);
+        commandHistoryRef.current = [command, ...commandHistoryRef.current];
+        historyIndexRef.current = -1;
         
-        if (websocket.current && websocket.current.readyState === WebSocket.OPEN) {
+        if (websocket.current?.readyState === WebSocket.OPEN) {
           websocket.current.send(JSON.stringify({
             type: 'command',
             command: command,
@@ -190,96 +204,81 @@ function PracticalExam() {
           }));
         }
         
-        commandBuffer.current = '';
+        terminal.current.write('\r\n$ ');
+        commandBufferRef.current = '';
       }
-      terminal.current.write('\r\n$ ');
       return;
     }
     
     if (data === '\x7f') {
-      if (commandBuffer.current.length > 0) {
-        commandBuffer.current = commandBuffer.current.slice(0, -1);
+      if (commandBufferRef.current.length > 0) {
+        commandBufferRef.current = commandBufferRef.current.slice(0, -1);
         terminal.current.write('\b \b');
       }
       return;
     }
     
     if (data === '\x1b[A') {
-      if (commandHistory.length > 0 && historyIndex < commandHistory.length - 1) {
-        const newIndex = historyIndex + 1;
-        setHistoryIndex(newIndex);
-        terminal.current.write('\x1b[2K\r$ ' + commandHistory[newIndex]);
-        commandBuffer.current = commandHistory[newIndex];
+      if (commandHistoryRef.current.length > 0 && historyIndexRef.current < commandHistoryRef.current.length - 1) {
+        historyIndexRef.current += 1;
+        const command = commandHistoryRef.current[historyIndexRef.current];
+        commandBufferRef.current = command;
+        terminal.current.write(`\x1b[2K\r$ ${command}`);
       }
       return;
     }
     
     if (data === '\x1b[B') {
-      if (historyIndex > 0) {
-        const newIndex = historyIndex - 1;
-        setHistoryIndex(newIndex);
-        terminal.current.write('\x1b[2K\r$ ' + commandHistory[newIndex]);
-        commandBuffer.current = commandHistory[newIndex];
-      } else if (historyIndex === 0) {
-        setHistoryIndex(-1);
+      if (historyIndexRef.current > 0) {
+        historyIndexRef.current -= 1;
+        const command = commandHistoryRef.current[historyIndexRef.current];
+        commandBufferRef.current = command;
+        terminal.current.write(`\x1b[2K\r$ ${command}`);
+      } else if (historyIndexRef.current === 0) {
+        historyIndexRef.current = -1;
+        commandBufferRef.current = '';
         terminal.current.write('\x1b[2K\r$ ');
-        commandBuffer.current = '';
       }
       return;
     }
     
-    commandBuffer.current += data;
+    commandBufferRef.current += data;
     terminal.current.write(data);
   };
 
-  const saveTerminalOutput = async () => {
-    if (!session) return;
+  const verifyTask = async () => {
+    if (!currentTask || !session) return;
+    
+    setVerifying(true);
+    setVerificationResult(null);
+    
     try {
-      await authPost(`/api/sessions/${session.id}/save_terminal/`, {
-        terminal_output: terminalOutput
+      const response = await authPost(`/api/sessions/${session.id}/verify-task/`, {
+        task_id: currentTask.id
       });
-      localStorage.setItem(STORAGE_KEY_OUTPUT, terminalOutput);
+      
+      setVerificationResult(response);
+      
+      if (terminal.current) {
+        terminal.current.write(`\r\nVerification result: ${response.is_verified ? 'SUCCESS' : 'FAILURE'}\r\n$ `);
+      }
     } catch (err) {
-      console.error('Failed to save terminal output:', err);
+      terminal.current.write(`\r\nVerification error: ${err.message}\r\n$ `);
+    } finally {
+      setVerifying(false);
     }
   };
 
   const submitExam = async () => {
+    if (!session) return;
+    
     try {
-      await saveTerminalOutput();
-      await authPost(`/api/sessions/${session.id}/submit_exam/`, {
-        terminal_output: terminalOutput
-      });
-      localStorage.removeItem(STORAGE_KEY_OUTPUT);
+      await authPost(`/api/sessions/${session.id}/submit-exam/`, {});
       navigate(`/student/results/${session.id}`);
     } catch (err) {
       setError('Failed to submit exam: ' + err.message);
     }
   };
-
-  useBeforeUnload(() => {
-    saveTerminalOutput();
-  });
-
-  useEffect(() => {
-    if (!session || session.is_completed) return;
-    
-    const interval = setInterval(() => {
-      setElapsedTime(prev => {
-        const newTime = prev + 1;
-        setRemainingTime(session.exam_duration * 60 - newTime);
-        
-        if (newTime >= session.exam_duration * 60) {
-          submitExam();
-          clearInterval(interval);
-        }
-        
-        return newTime;
-      });
-    }, 1000);
-    
-    return () => clearInterval(interval);
-  }, [session]);
 
   const formatTime = (sec) => {
     const m = Math.floor(sec / 60).toString().padStart(2, '0');
@@ -288,30 +287,37 @@ function PracticalExam() {
   };
 
   if (loading) {
-    return <div className="practical-loading">Loading practical exam...</div>;
+    return <div className="practical-loading">Loading practical exam environment...</div>;
   }
 
   if (error) {
-    return <div className="practical-error">{error}</div>;
+    return (
+      <div className="practical-error">
+        {error}
+        <button onClick={() => navigate('/student')}>
+          Go Back to Dashboard
+        </button>
+      </div>
+    );
   }
 
   return (
     <div className="practical-container">
       <div className="exam-header">
         <div className="exam-info">
-          <h1>{session?.exam_title} - Practical</h1>
+          <h1>{session?.exam_title} - Practical Exam</h1>
           <div className="exam-meta">
             <span>{tasks.length} Tasks</span>
             <span>•</span>
             <span>{session?.exam_duration} min</span>
             <span>•</span>
-            <span>{formatTime(remainingTime)}</span>
+            <span className="time-left">{formatTime(remainingTime)}</span>
           </div>
         </div>
         
         <div className="header-controls">
-          <div className="timer-container">
-            <span className="time-left">{formatTime(remainingTime)}</span>
+          <div className="connection-status">
+            Status: {connectionStatus}
           </div>
           <button className="submit-btn" onClick={submitExam}>
             Submit Exam
@@ -327,9 +333,12 @@ function PracticalExam() {
               <li 
                 key={task.id} 
                 className={currentTask?.id === task.id ? 'active' : ''}
-                onClick={() => setCurrentTask(task)}
+                onClick={() => {
+                  setCurrentTask(task);
+                  setVerificationResult(null);
+                }}
               >
-                Task {index + 1}: {task.task.title}
+                Task {index + 1}
               </li>
             ))}
           </ul>
@@ -338,23 +347,30 @@ function PracticalExam() {
         <div className="task-content">
           {currentTask && (
             <>
-              <h2>{currentTask.task.title}</h2>
-              <div 
-                className="task-description" 
-                dangerouslySetInnerHTML={{ 
-                  __html: currentTask.task.description.replace(/\r\n/g, '<br/>') 
-                }} 
-              />
-              {currentTask.task.command_template && (
-                <div className="hint-box">
-                  <strong>Command Hint:</strong>
-                  <pre>{currentTask.task.command_template}</pre>
-                </div>
-              )}
-              {currentTask.task.expected_output && (
-                <div className="expected-output">
-                  <strong>Expected Output:</strong>
-                  <pre>{currentTask.task.expected_output}</pre>
+              <div className="task-header">
+                <h2>Task {tasks.findIndex(t => t.id === currentTask.id) + 1}</h2>
+                <button 
+                  className="verify-btn" 
+                  onClick={verifyTask}
+                  disabled={verifying}
+                >
+                  {verifying ? 'Verifying...' : 'Verify Task'}
+                </button>
+              </div>
+              
+              <div className="task-description">
+                <pre>{currentTask.description}</pre>
+              </div>
+              
+              {verificationResult && (
+                <div className={`verification-result ${verificationResult.is_verified ? 'success' : 'failure'}`}>
+                  <h3>Verification Result:</h3>
+                  <pre>{verificationResult.verification_output}</pre>
+                  <p>
+                    {verificationResult.is_verified 
+                      ? '✅ Task completed successfully!' 
+                      : '❌ Task verification failed'}
+                  </p>
                 </div>
               )}
             </>
@@ -363,12 +379,27 @@ function PracticalExam() {
       </div>
       
       <div className="terminal-container">
+        <div className="terminal-header">
+          <h3>Exam Terminal</h3>
+          <div className="terminal-actions">
+            <button className="btn-clear" onClick={() => terminal.current?.clear()}>
+              Clear Terminal
+            </button>
+            <button className="btn-reconnect" onClick={initWebSocket} disabled={connectionStatus === 'Connected'}>
+              Reconnect
+            </button>
+          </div>
+        </div>
         <div ref={terminalRef} className="terminal"></div>
       </div>
       
       <div className="practical-footer">
-        <button className="btn-save" onClick={saveTerminalOutput}>
-          Save Progress
+        <button 
+          className="btn-verify" 
+          onClick={verifyTask}
+          disabled={verifying}
+        >
+          Verify Current Task
         </button>
         <button className="btn-submit" onClick={submitExam}>
           Submit Exam

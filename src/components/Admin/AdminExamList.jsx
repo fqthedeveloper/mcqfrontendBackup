@@ -1,7 +1,7 @@
 // src/components/ExamList.js
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FaPlus, FaEdit, FaTrash, FaEye, FaCalendarAlt, FaClock, FaBook } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaEye, FaCalendarAlt, FaClock, FaBook, FaTasks, FaQuestionCircle } from 'react-icons/fa';
 import { authGet } from '../../services/api';
 
 const ExamList = () => {
@@ -15,8 +15,8 @@ const ExamList = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-        document.title = "Exam List";
-      }, []);
+    document.title = "Exam List";
+  }, []);
 
   useEffect(() => {
     const fetchExams = async () => {
@@ -65,10 +65,16 @@ const ExamList = () => {
       (filter.status === 'draft' && !exam.is_published);
     
     const matchesSearch = exam.title.toLowerCase().includes(filter.search.toLowerCase()) ||
-      exam.subject.name.toLowerCase().includes(filter.search.toLowerCase());
+      (exam.subject_name && exam.subject_name.toLowerCase().includes(filter.search.toLowerCase()));
     
     return matchesStatus && matchesSearch;
   });
+
+  const formatDateTime = (dateTimeString) => {
+    if (!dateTimeString) return 'N/A';
+    const date = new Date(dateTimeString);
+    return date.toLocaleString();
+  };
 
   if (loading) return <div className="loading">Loading exams...</div>;
   
@@ -115,7 +121,7 @@ const ExamList = () => {
                 </div>
                 <h3>{exam.title}</h3>
                 <div className="subject">
-                  <FaBook /> {exam.subject.name}
+                  <FaBook /> {exam.subject_name || 'No Subject'}
                 </div>
               </div>
               
@@ -124,23 +130,34 @@ const ExamList = () => {
                   <FaClock /> Duration: {exam.duration} minutes
                 </div>
                 <div className="detail-item">
-                  <FaCalendarAlt /> Mode: {exam.mode === 'practice' ? 'Practice' : 'Strict'}
+                  <span>Mode:</span> 
+                  <span className={`mode-tag ${exam.mode}`}>
+                    {exam.mode.charAt(0).toUpperCase() + exam.mode.slice(1)}
+                  </span>
                 </div>
                 {exam.start_time && (
                   <div className="detail-item">
-                    <span>Start:</span> {new Date(exam.start_time).toLocaleString()}
+                    <span>Start:</span> {formatDateTime(exam.start_time)}
                   </div>
                 )}
                 {exam.end_time && (
                   <div className="detail-item">
-                    <span>End:</span> {new Date(exam.end_time).toLocaleString()}
+                    <span>End:</span> {formatDateTime(exam.end_time)}
                   </div>
                 )}
               </div>
               
               <div className="card-footer">
-                <div className="questions-count">
-                  {exam.questions.length} questions
+                <div className="count-info">
+                  {exam.mode === 'practical' ? (
+                    <>
+                      <FaTasks /> {exam.task_count || 0} tasks
+                    </>
+                  ) : (
+                    <>
+                      <FaQuestionCircle /> {exam.question_count || 0} questions
+                    </>
+                  )}
                 </div>
                 
                 <div className="actions">
@@ -163,13 +180,14 @@ const ExamList = () => {
         ) : (
           <div className="empty-state">
             <p>No exams found. Create your first exam!</p>
-            <Link to="/exams/create" className="btn-create">
+            <Link to="/admin/add-exam" className="btn-create">
               <FaPlus /> Create Exam
             </Link>
           </div>
         )}
       </div>
-    <style>{`
+      
+      <style>{`
         .exam-list-container {
           padding: 1rem;
           max-width: 1400px;
@@ -219,6 +237,7 @@ const ExamList = () => {
           display: flex;
           flex-direction: column;
           transition: transform 0.2s, box-shadow 0.2s;
+          background-color: white;
         }
         
         .exam-card:hover {
@@ -228,25 +247,30 @@ const ExamList = () => {
         
         .card-header {
           margin-bottom: 1rem;
+          position: relative;
         }
         
         .status-badge {
-          display: inline-block;
+          position: absolute;
+          top: -10px;
+          right: -10px;
           padding: 0.25rem 0.75rem;
           border-radius: 20px;
           font-size: 0.8rem;
           font-weight: 600;
-          margin-bottom: 0.75rem;
+          z-index: 1;
         }
         
         .published {
           background-color: #e6f7ee;
           color: #10b981;
+          border: 1px solid #10b981;
         }
         
         .draft {
           background-color: #eff6ff;
           color: #3b82f6;
+          border: 1px solid #3b82f6;
         }
         
         .subject {
@@ -255,6 +279,7 @@ const ExamList = () => {
           gap: 0.5rem;
           color: #64748b;
           margin-top: 0.5rem;
+          font-size: 0.9rem;
         }
         
         .card-details {
@@ -268,6 +293,34 @@ const ExamList = () => {
           gap: 0.5rem;
           margin-bottom: 0.75rem;
           color: #475569;
+          font-size: 0.9rem;
+        }
+        
+        .detail-item span:first-child {
+          font-weight: 600;
+          min-width: 60px;
+        }
+        
+        .mode-tag {
+          padding: 0.25rem 0.5rem;
+          border-radius: 4px;
+          font-size: 0.8rem;
+          font-weight: 600;
+        }
+        
+        .mode-tag.practical {
+          background-color: #e0f2fe;
+          color: #0369a1;
+        }
+        
+        .mode-tag.strict {
+          background-color: #fef9c3;
+          color: #854d0e;
+        }
+        
+        .mode-tag.practice {
+          background-color: #f0fdf4;
+          color: #15803d;
         }
         
         .card-footer {
@@ -280,7 +333,10 @@ const ExamList = () => {
           border-top: 1px solid #f1f1f1;
         }
         
-        .questions-count {
+        .count-info {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
           font-weight: 600;
           color: #475569;
         }
@@ -295,17 +351,24 @@ const ExamList = () => {
           display: flex;
           align-items: center;
           gap: 0.25rem;
-          padding: 0.5rem;
+          padding: 0.5rem 0.75rem;
           border-radius: 4px;
           border: none;
           cursor: pointer;
           font-weight: 500;
           transition: background-color 0.2s;
+          font-size: 0.9rem;
         }
         
-        .btn-view { background-color: #e0f2fe; color: #0369a1; }
-        .btn-edit { background-color: #fef9c3; color: #854d0e; }
-        .btn-delete { background-color: #fee2e2; color: #b91c1c; }
+        .btn-edit { 
+          background-color: #fef9c3; 
+          color: #854d0e; 
+        }
+        
+        .btn-delete { 
+          background-color: #fee2e2; 
+          color: #b91c1c; 
+        }
         
         .btn-create {
           display: flex;
@@ -330,6 +393,7 @@ const ExamList = () => {
           padding: 3rem;
           background-color: #f8fafc;
           border-radius: 8px;
+          border: 1px dashed #cbd5e1;
         }
         
         /* Responsive adjustments */
@@ -356,11 +420,7 @@ const ExamList = () => {
           
           .actions {
             width: 100%;
-          }
-          
-          .actions button {
-            flex: 1;
-            justify-content: center;
+            justify-content: space-between;
           }
         }
       `}</style>

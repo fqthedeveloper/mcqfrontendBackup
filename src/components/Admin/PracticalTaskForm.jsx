@@ -11,37 +11,43 @@ const PracticalTaskForm = ({ isEdit = false }) => {
   const [task, setTask] = useState({
     title: '',
     description: '',
-    command_template: '',
-    expected_output: '',
+    environment_id: '',
+    verification_script: '',
     marks: 10
   });
+  
+  const [environments, setEnvironments] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     document.title = isEdit ? 'Edit Practical Task' : 'Create Practical Task';
-    if (isEdit && id) {
-      fetchTask();
-    } else {
-      setLoading(false);
-    }
-  }, [id, isEdit]);
+    
+    const fetchData = async () => {
+      try {
+        const envs = await authGet('/api/environments/');
+        setEnvironments(envs);
+        
+        if (isEdit && id) {
+          const taskData = await authGet(`/api/tasks/${id}/`);
+          setTask({
+            title: taskData.title,
+            description: taskData.description,
+            environment_id: taskData.environment.id,
+            verification_script: taskData.verification_script,
+            marks: taskData.marks
+          });
+        } else if (envs.length > 0) {
+          setTask(prev => ({ ...prev, environment_id: envs[0].id }));
+        }
+      } catch (err) {
+        Swal.fire('Error', 'Failed to load data', 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const fetchTask = async () => {
-    try {
-      const taskData = await authGet(`/api/tasks/${id}/`);
-      setTask({
-        title: taskData.title,
-        description: taskData.description,
-        command_template: taskData.command_template,
-        expected_output: taskData.expected_output,
-        marks: taskData.marks
-      });
-    } catch (err) {
-      Swal.fire('Error', 'Failed to load task', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
+    fetchData();
+  }, [id, isEdit]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -51,17 +57,22 @@ const PracticalTaskForm = ({ isEdit = false }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!task.title || !task.description || !task.expected_output) {
+    if (!task.title || !task.description || !task.verification_script || !task.environment_id) {
       Swal.fire('Error', 'Please fill in all required fields', 'error');
       return;
     }
     
+    const payload = {
+      ...task,
+      environment_id: parseInt(task.environment_id)
+    };
+
     try {
       if (isEdit) {
-        await authPut(`/api/tasks/${id}/`, task);
+        await authPut(`/api/tasks/${id}/`, payload);
         Swal.fire('Success', 'Task updated successfully!', 'success');
       } else {
-        await authPost('/api/tasks/', task);
+        await authPost('/api/tasks/', payload);
         Swal.fire('Success', 'Task created successfully!', 'success');
       }
       navigate('/admin/task-list');
@@ -103,28 +114,32 @@ const PracticalTaskForm = ({ isEdit = false }) => {
         </div>
         
         <div className="form-group">
-          <label>Command Template</label>
-          <textarea 
-            name="command_template" 
-            value={task.command_template} 
-            onChange={handleChange} 
-            rows="3"
-            placeholder="Enter command template"
-          />
-          <small className="hint">Optional template for students</small>
+          <label>Docker Environment*</label>
+          <select 
+            name="environment" 
+            value={task.environment_id} 
+            onChange={handleChange}
+            required
+          >
+            {environments.map(env => (
+              <option key={env.id} value={env.id}>
+                {env.name} ({env.image})
+              </option>
+            ))}
+          </select>
         </div>
         
         <div className="form-group">
-          <label>Expected Output (Regex)*</label>
+          <label>Verification Script*</label>
           <textarea 
-            name="expected_output" 
-            value={task.expected_output} 
+            name="verification_script" 
+            value={task.verification_script} 
             onChange={handleChange} 
             required 
-            rows="3"
-            placeholder="Enter regex pattern for expected output"
+            rows="6"
+            placeholder="Enter bash script to verify task completion"
           />
-          <small className="hint">Example: ^total\s\d+$</small>
+          <small className="hint">This script will be run to check student's work</small>
         </div>
         
         <div className="form-group">

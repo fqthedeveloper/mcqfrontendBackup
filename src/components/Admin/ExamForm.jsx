@@ -68,7 +68,7 @@ const ExamForm = ({ isEdit = false }) => {
         
         // FIX: Correctly extract task IDs from practical_tasks array
         const taskIds = ed.practical_tasks ? 
-          ed.practical_tasks.map(t => t.task.id) : 
+          ed.practical_tasks.map(t => t.id) :  // Changed from t.task.id to t.id
           [];
         
         setExam({
