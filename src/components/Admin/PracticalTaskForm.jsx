@@ -11,33 +11,39 @@ const PracticalTaskForm = ({ isEdit = false }) => {
   const [task, setTask] = useState({
     title: '',
     description: '',
-    environment_id: '',
-    verification_script: '',
-    marks: 10
+    docker_image: '',
+    setup_command: '',
+    verification_command: '',
+    duration: 60,
+    subject: '',
+    is_published: false
   });
   
-  const [environments, setEnvironments] = useState([]);
+  const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    document.title = isEdit ? 'Edit Practical Task' : 'Create Practical Task';
+    document.title = isEdit ? 'Edit Practical Exam' : 'Create Practical Exam';
     
     const fetchData = async () => {
       try {
-        const envs = await authGet('/api/environments/');
-        setEnvironments(envs);
+        const subjectsData = await authGet('/api/subjects/');
+        setSubjects(subjectsData);
         
         if (isEdit && id) {
-          const taskData = await authGet(`/api/tasks/${id}/`);
+          const taskData = await authGet(`/api/practical-exams/${id}/`);
           setTask({
             title: taskData.title,
             description: taskData.description,
-            environment_id: taskData.environment.id,
-            verification_script: taskData.verification_script,
-            marks: taskData.marks
+            docker_image: taskData.docker_image,
+            setup_command: taskData.setup_command,
+            verification_command: taskData.verification_command,
+            duration: taskData.duration,
+            subject: taskData.subject.id,
+            is_published: taskData.is_published
           });
-        } else if (envs.length > 0) {
-          setTask(prev => ({ ...prev, environment_id: envs[0].id }));
+        } else if (subjectsData.length > 0) {
+          setTask(prev => ({ ...prev, subject: subjectsData[0].id }));
         }
       } catch (err) {
         Swal.fire('Error', 'Failed to load data', 'error');
@@ -54,28 +60,45 @@ const PracticalTaskForm = ({ isEdit = false }) => {
     setTask(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleCheckboxChange = (e) => {
+    setTask(prev => ({ ...prev, [e.target.name]: e.target.checked }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!task.title || !task.description || !task.verification_script || !task.environment_id) {
-      Swal.fire('Error', 'Please fill in all required fields', 'error');
+    const requiredFields = [
+      'title', 'description', 'docker_image', 
+      'setup_command', 'verification_command', 'subject'
+    ];
+    
+    // Check for empty required fields
+    const emptyFields = requiredFields.filter(field => !task[field]);
+    if (emptyFields.length > 0) {
+      Swal.fire('Error', `Please fill in all required fields: ${emptyFields.join(', ')}`, 'error');
       return;
     }
     
+    if (task.duration < 1) {
+      Swal.fire('Error', 'Duration must be at least 1 minute', 'error');
+      return;
+    }
+
     const payload = {
       ...task,
-      environment_id: parseInt(task.environment_id)
+      duration: parseInt(task.duration),
+      subject: parseInt(task.subject)
     };
 
     try {
       if (isEdit) {
-        await authPut(`/api/tasks/${id}/`, payload);
-        Swal.fire('Success', 'Task updated successfully!', 'success');
+        await authPut(`/api/practical-exams/${id}/`, payload);
+        Swal.fire('Success', 'Practical exam updated successfully!', 'success');
       } else {
-        await authPost('/api/tasks/', payload);
-        Swal.fire('Success', 'Task created successfully!', 'success');
+        await authPost('/api/practical-exams/', payload);
+        Swal.fire('Success', 'Practical exam created successfully!', 'success');
       }
-      navigate('/admin/task-list');
+      navigate('/admin');
     } catch (err) {
       Swal.fire('Error', err.message || 'Operation failed', 'error');
     }
@@ -87,7 +110,7 @@ const PracticalTaskForm = ({ isEdit = false }) => {
 
   return (
     <div className="task-form-container">
-      <h2>{isEdit ? 'Edit Practical Task' : 'Create New Practical Task'}</h2>
+      <h2>{isEdit ? 'Edit Practical Exam' : 'Create New Practical Exam'}</h2>
       <form onSubmit={handleSubmit}>
         <div className="form-group">
           <label>Title*</label>
@@ -97,7 +120,7 @@ const PracticalTaskForm = ({ isEdit = false }) => {
             value={task.title} 
             onChange={handleChange} 
             required 
-            placeholder="Enter task title"
+            placeholder="Enter exam title"
           />
         </div>
         
@@ -109,59 +132,94 @@ const PracticalTaskForm = ({ isEdit = false }) => {
             onChange={handleChange} 
             required 
             rows="4"
-            placeholder="Describe the task requirements"
+            placeholder="Describe the exam requirements"
           />
         </div>
         
         <div className="form-group">
-          <label>Docker Environment*</label>
+          <label>Subject*</label>
           <select 
-            name="environment" 
-            value={task.environment_id} 
+            name="subject" 
+            value={task.subject || ''} 
             onChange={handleChange}
             required
           >
-            {environments.map(env => (
-              <option key={env.id} value={env.id}>
-                {env.name} ({env.image})
+            <option value="">Select Subject</option>
+            {subjects.map(subject => (
+              <option key={subject.id} value={subject.id}>
+                {subject.name}
               </option>
             ))}
           </select>
         </div>
         
         <div className="form-group">
-          <label>Verification Script*</label>
-          <textarea 
-            name="verification_script" 
-            value={task.verification_script} 
+          <label>Docker Image*</label>
+          <input 
+            type="text" 
+            name="docker_image" 
+            value={task.docker_image} 
             onChange={handleChange} 
             required 
-            rows="6"
-            placeholder="Enter bash script to verify task completion"
+            placeholder="e.g. ubuntu:latest"
           />
-          <small className="hint">This script will be run to check student's work</small>
         </div>
         
         <div className="form-group">
-          <label>Marks*</label>
+          <label>Setup Command*</label>
+          <textarea 
+            name="setup_command" 
+            value={task.setup_command} 
+            onChange={handleChange} 
+            required 
+            rows="3"
+            placeholder="Command to run when container starts"
+          />
+        </div>
+        
+        <div className="form-group">
+          <label>Verification Command*</label>
+          <textarea 
+            name="verification_command" 
+            value={task.verification_command} 
+            onChange={handleChange} 
+            required 
+            rows="3"
+            placeholder="Command to verify solution"
+          />
+        </div>
+        
+        <div className="form-group">
+          <label>Duration (minutes)*</label>
           <input 
             type="number" 
-            name="marks" 
-            value={task.marks} 
+            name="duration" 
+            value={task.duration} 
             onChange={handleChange} 
             min="1" 
             required 
           />
         </div>
         
+        <div className="form-checkbox">
+          <input 
+            type="checkbox" 
+            id="is_published" 
+            name="is_published" 
+            checked={task.is_published} 
+            onChange={handleCheckboxChange}
+          />
+          <label htmlFor="is_published">Publish this exam</label>
+        </div>
+        
         <div className="form-buttons">
           <button type="submit" className="btn btn-primary">
-            {isEdit ? 'Update Task' : 'Create Task'}
+            {isEdit ? 'Update Exam' : 'Create Exam'}
           </button>
           <button 
             type="button" 
             className="btn btn-secondary"
-            onClick={() => navigate('/admin/task-list')}
+            onClick={() => navigate('/admin/add-tasks')}
           >
             Cancel
           </button>

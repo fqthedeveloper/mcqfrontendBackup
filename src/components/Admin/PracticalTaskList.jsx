@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { authGet, authDelete } from '../../services/api';
+import { authGet, authDelete, authPut } from '../../services/api';
 import Swal from 'sweetalert2';
-import { FaEdit, FaTrash, FaPlus, FaDocker } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaPlus, FaDocker, FaClock, FaBook } from 'react-icons/fa';
 import '../CSS/ExamForm.css';
 
 const PracticalTaskList = () => {
-  const [tasks, setTasks] = useState([]);
+  const [exams, setExams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -14,18 +14,18 @@ const PracticalTaskList = () => {
   const pageSize = 10;
 
   useEffect(() => {
-    document.title = 'Manage Practical Tasks';
-    fetchTasks();
+    document.title = 'Manage Practical Exams';
+    fetchExams();
   }, [currentPage]);
 
-  const fetchTasks = async () => {
+  const fetchExams = async () => {
     try {
       setLoading(true);
-      const response = await authGet(`/api/tasks/?page=${currentPage}&page_size=${pageSize}`);
-      setTasks(response.results || response);
+      const response = await authGet(`/api/practical-exams/?page=${currentPage}&page_size=${pageSize}`);
+      setExams(response.results || response);
       setTotalPages(Math.ceil((response.count || response.length) / pageSize));
     } catch (err) {
-      setError(err.message || 'Failed to load tasks');
+      setError(err.message || 'Failed to load exams');
     } finally {
       setLoading(false);
     }
@@ -33,8 +33,8 @@ const PracticalTaskList = () => {
 
   const handleDelete = (id) => {
     Swal.fire({
-      title: 'Delete Task?',
-      text: 'Are you sure you want to delete this task?',
+      title: 'Delete Exam?',
+      text: 'Are you sure you want to delete this exam?',
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#d33',
@@ -43,11 +43,11 @@ const PracticalTaskList = () => {
     }).then(async (result) => {
       if (result.isConfirmed) {
         try {
-          await authDelete(`/api/tasks/${id}/`);
-          fetchTasks();
-          Swal.fire('Deleted!', 'The task has been deleted.', 'success');
+          await authDelete(`/api/practical-exams/${id}/`);
+          fetchExams();
+          Swal.fire('Deleted!', 'The exam has been deleted.', 'success');
         } catch (err) {
-          Swal.fire('Error', 'Failed to delete task', 'error');
+          Swal.fire('Error', 'Failed to delete exam', 'error');
         }
       }
     });
@@ -57,8 +57,20 @@ const PracticalTaskList = () => {
     setCurrentPage(page);
   };
 
+  const togglePublishStatus = async (id, currentStatus) => {
+    try {
+      await authPut(`/api/practical-exams/${id}/`, {
+        is_published: !currentStatus
+      });
+      fetchExams();
+      Swal.fire('Success', `Exam ${!currentStatus ? 'published' : 'unpublished'}`, 'success');
+    } catch (err) {
+      Swal.fire('Error', 'Failed to update status', 'error');
+    }
+  };
+
   if (loading) {
-    return <div className="loading-container">Loading tasks...</div>;
+    return <div className="loading-container">Loading exams...</div>;
   }
 
   if (error) {
@@ -68,9 +80,9 @@ const PracticalTaskList = () => {
   return (
     <div className="task-list-container">
       <div className="header">
-        <h1>Practical Tasks</h1>
+        <h1>Practical Exams</h1>
         <Link to="/admin/add-task" className="btn btn-primary">
-          <FaPlus /> Add New Task
+          <FaPlus /> Add New Exam
         </Link>
       </div>
 
@@ -79,36 +91,55 @@ const PracticalTaskList = () => {
           <thead>
             <tr>
               <th>Title</th>
-              <th>Description</th>
+              <th>Subject</th>
               <th>Environment</th>
-              <th>Marks</th>
+              <th>Duration</th>
+              <th>Status</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {tasks.length > 0 ? tasks.map(task => (
-              <tr key={task.id}>
-                <td>{task.title}</td>
-                <td className="description-cell">
-                  {task.description.length > 100 ? 
-                    `${task.description.substring(0, 100)}...` : task.description}
+            {exams.length > 0 ? exams.map(exam => (
+              <tr key={exam.id}>
+                <td>{exam.title}</td>
+                <td>
+                  <div className="subject-cell">
+                    <FaBook className="icon" />
+                    <span>{exam.subject?.name}</span>
+                  </div>
                 </td>
                 <td className="environment-cell">
-                  {task.environment && (
-                    <div className="env-info">
-                      <FaDocker className="docker-icon" />
-                      <span>{task.environment.name}</span>
-                      <small>{task.environment.image}</small>
+                  <div className="env-info">
+                    <FaDocker className="docker-icon" />
+                    <div>
+                      <div>{exam.docker_image}</div>
+                      <small>Setup: {exam.setup_command ? exam.setup_command.substring(0, 30) + '...' : 'N/A'}</small>
                     </div>
-                  )}
+                  </div>
                 </td>
-                <td>{task.marks}</td>
+                <td>
+                  <div className="duration-cell">
+                    <FaClock className="icon" />
+                    <span>{exam.duration} mins</span>
+                  </div>
+                </td>
+                <td>
+                  <span className={`status-badge ${exam.is_published ? 'published' : 'draft'}`}>
+                    {exam.is_published ? 'Published' : 'Draft'}
+                  </span>
+                </td>
                 <td className="actions-cell">
-                  <Link to={`/admin/edit-task/${task.id}`} className="btn btn-edit">
+                  <Link to={`/admin/edit-task/${exam.id}`} className="btn btn-edit">
                     <FaEdit /> Edit
                   </Link>
                   <button 
-                    onClick={() => handleDelete(task.id)} 
+                    onClick={() => togglePublishStatus(exam.id, exam.is_published)} 
+                    className={`btn ${exam.is_published ? 'btn-warning' : 'btn-success'}`}
+                  >
+                    {exam.is_published ? 'Unpublish' : 'Publish'}
+                  </button>
+                  <button 
+                    onClick={() => handleDelete(exam.id)} 
                     className="btn btn-danger"
                   >
                     <FaTrash /> Delete
@@ -117,7 +148,7 @@ const PracticalTaskList = () => {
               </tr>
             )) : (
               <tr>
-                <td colSpan="5" className="no-tasks">No practical tasks found</td>
+                <td colSpan="6" className="no-tasks">No practical exams found</td>
               </tr>
             )}
           </tbody>

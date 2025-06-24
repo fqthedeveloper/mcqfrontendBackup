@@ -97,7 +97,7 @@ export default function Exam() {
 
         let sessionData;
         try {
-          sessionData = await authGet(`/api/sessions/validate/${examId}/`, {
+          sessionData = await authGet(`/api/sessions/validate-exam/${examId}/`, {
             signal: controller.signal,
           });
         } catch (validateErr) {

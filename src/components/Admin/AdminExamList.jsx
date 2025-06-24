@@ -1,8 +1,11 @@
-// src/components/ExamList.js
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FaPlus, FaEdit, FaTrash, FaEye, FaCalendarAlt, FaClock, FaBook, FaTasks, FaQuestionCircle } from 'react-icons/fa';
-import { authGet } from '../../services/api';
+import { 
+  FaPlus, FaEdit, FaTrash, FaClock, FaBook, 
+  FaTasks, FaQuestionCircle 
+} from 'react-icons/fa';
+import Swal from 'sweetalert2';
+import { authGet, authDelete } from '../../services/api';
 
 const ExamList = () => {
   const [exams, setExams] = useState([]);
@@ -16,46 +19,82 @@ const ExamList = () => {
 
   useEffect(() => {
     document.title = "Exam List";
-  }, []);
-
-  useEffect(() => {
-    const fetchExams = async () => {
-      try {
-        const data = await authGet('/api/exams/');
-        setExams(data);
-        setLoading(false);
-      } catch (err) {
-        setError('Failed to load exams');
-        setLoading(false);
-      }
-    };
-    
     fetchExams();
   }, []);
 
-  const handleDelete = async (examId) => {
-    if (window.confirm('Are you sure you want to delete this exam?')) {
-      try {
-        // In a real app, you would call an API to delete
-        setExams(exams.filter(exam => exam.id !== examId));
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 500));
-      } catch (err) {
-        setError('Failed to delete exam');
-      }
+  const fetchExams = async () => {
+    try {
+      const data = await authGet('/api/exams/');
+      setExams(data);
+      setLoading(false);
+    } catch (err) {
+      setError('Failed to load exams');
+      setLoading(false);
     }
   };
 
-  const handlePublishToggle = async (examId) => {
-    try {
-      // In a real app, you would call an API to toggle publish status
-      setExams(exams.map(exam => 
-        exam.id === examId ? { ...exam, is_published: !exam.is_published } : exam
-      ));
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-    } catch (err) {
-      setError('Failed to update exam status');
+  const handleDelete = async (examId, examTitle) => {
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: `You are about to delete the exam "${examTitle}". This action cannot be undone!`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, delete it!',
+      reverseButtons: true,
+      focusCancel: true,
+      customClass: {
+        container: 'swal-container',
+        popup: 'swal-popup',
+        title: 'swal-title',
+        htmlContainer: 'swal-text',
+        confirmButton: 'swal-confirm',
+        cancelButton: 'swal-cancel'
+      }
+    });
+    
+    if (result.isConfirmed) {
+      try {
+        // Show loading indicator
+        Swal.fire({
+          title: 'Deleting Exam',
+          text: 'Please wait...',
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          }
+        });
+        
+        // Call backend to delete exam
+        await authDelete(`/api/exams/${examId}/`);
+        
+        // Update UI after successful deletion
+        setExams(exams.filter(exam => exam.id !== examId));
+        
+        // Close loading indicator
+        Swal.close();
+        
+        // Show success message
+        Swal.fire({
+          title: 'Deleted!',
+          text: `Exam "${examTitle}" has been deleted.`,
+          icon: 'success',
+          timer: 2000,
+          showConfirmButton: false
+        });
+      } catch (err) {
+        // Close loading indicator
+        Swal.close();
+        
+        // Show error message
+        Swal.fire({
+          title: 'Error!',
+          text: 'Failed to delete exam. Please try again.',
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
+      }
     }
   };
 
@@ -76,7 +115,28 @@ const ExamList = () => {
     return date.toLocaleString();
   };
 
-  if (loading) return <div className="loading">Loading exams...</div>;
+  const getCountDisplay = (exam) => {
+    if (exam.mode === 'practical') {
+      return {
+        icon: <FaTasks />,
+        text: `${exam.practical_count || 0} tasks`,
+        className: 'practical-count'
+      };
+    } else {
+      return {
+        icon: <FaQuestionCircle />,
+        text: `${exam.question_count || 0} questions`,
+        className: 'question-count'
+      };
+    }
+  };
+
+  if (loading) return (
+    <div className="loading-container">
+      <div className="loading-spinner"></div>
+      <p>Loading exams...</p>
+    </div>
+  );
   
   return (
     <div className="exam-list-container">
@@ -113,70 +173,66 @@ const ExamList = () => {
       
       <div className="exams-grid">
         {filteredExams.length > 0 ? (
-          filteredExams.map(exam => (
-            <div key={exam.id} className="exam-card">
-              <div className="card-header">
-                <div className={`status-badge ${exam.is_published ? 'published' : 'draft'}`}>
-                  {exam.is_published ? 'Published' : 'Draft'}
-                </div>
-                <h3>{exam.title}</h3>
-                <div className="subject">
-                  <FaBook /> {exam.subject_name || 'No Subject'}
-                </div>
-              </div>
-              
-              <div className="card-details">
-                <div className="detail-item">
-                  <FaClock /> Duration: {exam.duration} minutes
-                </div>
-                <div className="detail-item">
-                  <span>Mode:</span> 
-                  <span className={`mode-tag ${exam.mode}`}>
-                    {exam.mode.charAt(0).toUpperCase() + exam.mode.slice(1)}
-                  </span>
-                </div>
-                {exam.start_time && (
-                  <div className="detail-item">
-                    <span>Start:</span> {formatDateTime(exam.start_time)}
+          filteredExams.map(exam => {
+            const countInfo = getCountDisplay(exam);
+            
+            return (
+              <div key={exam.id} className="exam-card">
+                <div className="card-header">
+                  <div className={`status-badge ${exam.is_published ? 'published' : 'draft'}`}>
+                    {exam.is_published ? 'Published' : 'Draft'}
                   </div>
-                )}
-                {exam.end_time && (
-                  <div className="detail-item">
-                    <span>End:</span> {formatDateTime(exam.end_time)}
+                  <h3>{exam.title}</h3>
+                  <div className="subject">
+                    <FaBook /> {exam.subject_name || 'No Subject'}
                   </div>
-                )}
-              </div>
-              
-              <div className="card-footer">
-                <div className="count-info">
-                  {exam.mode === 'practical' ? (
-                    <>
-                      <FaTasks /> {exam.task_count || 0} tasks
-                    </>
-                  ) : (
-                    <>
-                      <FaQuestionCircle /> {exam.question_count || 0} questions
-                    </>
+                </div>
+                
+                <div className="card-details">
+                  <div className="detail-item">
+                    <FaClock /> Duration: {exam.duration} minutes
+                  </div>
+                  <div className="detail-item">
+                    <span>Mode:</span> 
+                    <span className={`mode-tag ${exam.mode}`}>
+                      {exam.mode.charAt(0).toUpperCase() + exam.mode.slice(1)}
+                    </span>
+                  </div>
+                  {exam.start_time && (
+                    <div className="detail-item">
+                      <span>Start:</span> {formatDateTime(exam.start_time)}
+                    </div>
+                  )}
+                  {exam.end_time && (
+                    <div className="detail-item">
+                      <span>End:</span> {formatDateTime(exam.end_time)}
+                    </div>
                   )}
                 </div>
                 
-                <div className="actions">
-                  <button 
-                    className="btn-edit"
-                    onClick={() => navigate(`/admin/exams/${exam.id}/edit`)}
-                  >
-                    <FaEdit /> Edit
-                  </button>
-                  <button 
-                    className="btn-delete"
-                    onClick={() => handleDelete(exam.id)}
-                  >
-                    <FaTrash /> Delete
-                  </button>
+                <div className="card-footer">
+                  <div className={`count-info ${countInfo.className}`}>
+                    {countInfo.icon} {countInfo.text}
+                  </div>
+                  
+                  <div className="actions">
+                    <button 
+                      className="btn-edit"
+                      onClick={() => navigate(`/admin/exams/${exam.id}/edit`)}
+                    >
+                      <FaEdit /> Edit
+                    </button>
+                    <button 
+                      className="btn-delete"
+                      onClick={() => handleDelete(exam.id, exam.title)}
+                    >
+                      <FaTrash /> Delete
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         ) : (
           <div className="empty-state">
             <p>No exams found. Create your first exam!</p>
@@ -187,241 +243,47 @@ const ExamList = () => {
         )}
       </div>
       
-      <style>{`
-        .exam-list-container {
-          padding: 1rem;
-          max-width: 1400px;
-          margin: 0 auto;
+      {/* Add some global styles for SweetAlert */}
+      <style jsx global>{`
+        .swal-container {
+          z-index: 2000;
         }
-        
-        .list-header {
-          display: flex;
-          flex-wrap: wrap;
-          justify-content: space-between;
-          align-items: center;
-          gap: 1rem;
-          margin-bottom: 1.5rem;
-        }
-        
-        .filters {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 1rem;
-          margin-bottom: 1.5rem;
-        }
-        
-        .filter-group {
-          flex: 1;
-          min-width: 200px;
-        }
-        
-        .filter-group input,
-        .filter-group select {
-          width: 100%;
-          padding: 0.75rem;
-          border: 1px solid #ddd;
-          border-radius: 4px;
-          font-size: 1rem;
-        }
-        
-        .exams-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-          gap: 1.5rem;
-        }
-        
-        .exam-card {
-          border: 1px solid #eaeaea;
+        .swal-popup {
           border-radius: 8px;
-          padding: 1.25rem;
-          display: flex;
-          flex-direction: column;
-          transition: transform 0.2s, box-shadow 0.2s;
-          background-color: white;
+          padding: 20px;
+          box-shadow: 0 5px 15px rgba(0,0,0,0.3);
         }
-        
-        .exam-card:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        .swal-title {
+          font-size: 1.5rem;
+          margin-bottom: 15px;
+          color: #333;
         }
-        
-        .card-header {
-          margin-bottom: 1rem;
-          position: relative;
+        .swal-text {
+          font-size: 1.1rem;
+          color: #555;
+          line-height: 1.5;
         }
-        
-        .status-badge {
-          position: absolute;
-          top: -10px;
-          right: -10px;
-          padding: 0.25rem 0.75rem;
-          border-radius: 20px;
-          font-size: 0.8rem;
-          font-weight: 600;
-          z-index: 1;
-        }
-        
-        .published {
-          background-color: #e6f7ee;
-          color: #10b981;
-          border: 1px solid #10b981;
-        }
-        
-        .draft {
-          background-color: #eff6ff;
-          color: #3b82f6;
-          border: 1px solid #3b82f6;
-        }
-        
-        .subject {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          color: #64748b;
-          margin-top: 0.5rem;
-          font-size: 0.9rem;
-        }
-        
-        .card-details {
-          flex: 1;
-          margin-bottom: 1rem;
-        }
-        
-        .detail-item {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          margin-bottom: 0.75rem;
-          color: #475569;
-          font-size: 0.9rem;
-        }
-        
-        .detail-item span:first-child {
-          font-weight: 600;
-          min-width: 60px;
-        }
-        
-        .mode-tag {
-          padding: 0.25rem 0.5rem;
-          border-radius: 4px;
-          font-size: 0.8rem;
-          font-weight: 600;
-        }
-        
-        .mode-tag.practical {
-          background-color: #e0f2fe;
-          color: #0369a1;
-        }
-        
-        .mode-tag.strict {
-          background-color: #fef9c3;
-          color: #854d0e;
-        }
-        
-        .mode-tag.practice {
-          background-color: #f0fdf4;
-          color: #15803d;
-        }
-        
-        .card-footer {
-          display: flex;
-          flex-wrap: wrap;
-          justify-content: space-between;
-          align-items: center;
-          gap: 0.75rem;
-          padding-top: 1rem;
-          border-top: 1px solid #f1f1f1;
-        }
-        
-        .count-info {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          font-weight: 600;
-          color: #475569;
-        }
-        
-        .actions {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.5rem;
-        }
-        
-        .actions button {
-          display: flex;
-          align-items: center;
-          gap: 0.25rem;
-          padding: 0.5rem 0.75rem;
-          border-radius: 4px;
+        .swal-confirm {
+          background-color: #d33 !important;
           border: none;
-          cursor: pointer;
-          font-weight: 500;
-          transition: background-color 0.2s;
-          font-size: 0.9rem;
-        }
-        
-        .btn-edit { 
-          background-color: #fef9c3; 
-          color: #854d0e; 
-        }
-        
-        .btn-delete { 
-          background-color: #fee2e2; 
-          color: #b91c1c; 
-        }
-        
-        .btn-create {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.75rem 1.25rem;
-          background-color: #3b82f6;
-          color: white;
-          text-decoration: none;
+          padding: 10px 20px;
           border-radius: 4px;
           font-weight: 600;
           transition: background-color 0.2s;
         }
-        
-        .btn-create:hover {
-          background-color: #2563eb;
+        .swal-confirm:hover {
+          background-color: #c22 !important;
         }
-        
-        .empty-state {
-          text-align: center;
-          grid-column: 1 / -1;
-          padding: 3rem;
-          background-color: #f8fafc;
-          border-radius: 8px;
-          border: 1px dashed #cbd5e1;
+        .swal-cancel {
+          background-color: #6c757d !important;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 4px;
+          font-weight: 600;
+          transition: background-color 0.2s;
         }
-        
-        /* Responsive adjustments */
-        @media (max-width: 768px) {
-          .exams-grid {
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-          }
-          
-          .list-header {
-            flex-direction: column;
-            align-items: flex-start;
-          }
-        }
-        
-        @media (max-width: 480px) {
-          .exam-card {
-            padding: 1rem;
-          }
-          
-          .card-footer {
-            flex-direction: column;
-            align-items: flex-start;
-          }
-          
-          .actions {
-            width: 100%;
-            justify-content: space-between;
-          }
+        .swal-cancel:hover {
+          background-color: #5a6268 !important;
         }
       `}</style>
     </div>

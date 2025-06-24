@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext } from 'react';
 import { authGet, authPost } from '../services/api';
 
 const ExamContext = createContext();
@@ -31,10 +31,20 @@ export const ExamProvider = ({ children }) => {
 
   const startExam = async (exam) => {
     try {
-      const response = await authPost('/api/sessions/validate-exam/', { exam: exam.id });
+      // Fixed endpoint with exam ID in URL
+      const response = await authPost(`/api/sessions/validate-exam/${exam.id}/`, {});
       return response;
     } catch (err) {
-      throw new Error(err.message || 'Failed to start exam');
+      // Enhanced error handling
+      let errorMsg = 'Failed to start exam';
+      if (err.response) {
+        if (err.response.data && err.response.data.error) {
+          errorMsg = err.response.data.error;
+        } else {
+          errorMsg = `Server error: ${err.response.status}`;
+        }
+      }
+      throw new Error(errorMsg);
     }
   };
 

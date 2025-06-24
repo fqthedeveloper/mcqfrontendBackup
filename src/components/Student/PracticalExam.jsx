@@ -1,4 +1,3 @@
-// PracticalExam.js
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Terminal } from 'xterm';
@@ -23,7 +22,9 @@ function PracticalExam() {
   const [terminalReady, setTerminalReady] = useState(false);
   const [verificationResult, setVerificationResult] = useState(null);
   const [verifying, setVerifying] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState('Connecting...');
+  const [connectionStatus, setConnectionStatus] = useState('Initializing...');
+  const [containerStatus, setContainerStatus] = useState('Initializing Docker environment...');
+  const [imagePulling, setImagePulling] = useState(false);
   
   const terminalRef = useRef(null);
   const terminal = useRef(null);
@@ -149,9 +150,42 @@ function PracticalExam() {
     
     window.addEventListener('resize', () => fitAddon.current.fit());
     
-    terminal.current.write(`${connectionStatus}\r\n`);
+    terminal.current.write(`${containerStatus}\r\n`);
     terminal.current.onData(data => handleTerminalInput(data));
-    initWebSocket();
+    
+    if (session?.container_id) {
+      setContainerStatus('Container ready. Connecting...');
+      initWebSocket();
+    } else {
+      startContainer();
+    }
+  };
+
+  const startContainer = async () => {
+    if (!session) return;
+    
+    setContainerStatus('Starting Docker container...');
+    setImagePulling(true);
+    
+    try {
+      const response = await authPost(
+        `/api/sessions/${session.id}/start-container/`, 
+        {}
+      );
+      
+      if (response.container_id) {
+        setContainerStatus('Container ready! Connecting terminal...');
+        setSession({ ...session, container_id: response.container_id });
+        initWebSocket();
+      } else {
+        setContainerStatus('Failed to start container. Try reconnect.');
+      }
+    } catch (err) {
+      setContainerStatus(`Error: ${err.message}`);
+      terminal.current?.write(`\r\nContainer error: ${err.message}\r\n`);
+    } finally {
+      setImagePulling(false);
+    }
   };
 
   const initWebSocket = () => {
@@ -160,12 +194,13 @@ function PracticalExam() {
     
     if (!session) return;
     
-    const wsUrl = `${wsProtocol}//${window.location.host}/ws/practical/${sessionId}/?token=${token}&exam_id=${session.exam}`;
+    const wsUrl = `${wsProtocol}//${window.location.host}/ws/practical/${sessionId}/?token=${token}`;
     
     websocket.current = new WebSocket(wsUrl);
     
     websocket.current.onopen = () => {
       setConnectionStatus('Connected');
+      setContainerStatus('Container ready');
       terminal.current.write('\r\nConnected to exam environment\r\n$ ');
     };
     
@@ -325,6 +360,19 @@ function PracticalExam() {
         </div>
       </div>
       
+      <div className="container-status">
+        {imagePulling ? (
+          <div className="image-pulling">
+            <div className="spinner"></div>
+            <span>{containerStatus}</span>
+          </div>
+        ) : (
+          <div className={`status-badge ${containerStatus.includes('ready') ? 'ready' : 'error'}`}>
+            {containerStatus}
+          </div>
+        )}
+      </div>
+      
       <div className="practical-layout">
         <div className="task-sidebar">
           <h3>Tasks</h3>
@@ -387,6 +435,9 @@ function PracticalExam() {
             </button>
             <button className="btn-reconnect" onClick={initWebSocket} disabled={connectionStatus === 'Connected'}>
               Reconnect
+            </button>
+            <button className="btn-restart" onClick={startContainer}>
+              Restart Container
             </button>
           </div>
         </div>

@@ -1,11 +1,10 @@
-// ExamList.js
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExam } from '../../context/examContext';
 import '../CSS/ExamList.css';
 
 export default function ExamList() {
-  const { exams, sessions, fetchExams, startExam, loading, error } = useExam();
+  const { exams, fetchExams, startExam, loading, error } = useExam();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -14,12 +13,7 @@ export default function ExamList() {
 
   const handleStartExam = async (exam) => {
     try {
-      // Check for existing session first
-      const existingSession = sessions.find(s => 
-        s.exam === exam.id && !s.is_completed
-      );
-      
-      const session = existingSession || await startExam(exam);
+      const session = await startExam(exam);
       
       if (exam.mode === 'strict') {
         navigate(`/student/exam/${session.id}`);
@@ -28,7 +22,8 @@ export default function ExamList() {
       }
     } catch (err) {
       console.error('Failed to start exam:', err);
-      alert(`Failed to start exam: ${err.message}`);
+      const errorMsg = err.response?.data?.error || err.message;
+      alert(`Failed to start exam: ${errorMsg}`);
     }
   };
 
@@ -101,7 +96,7 @@ export default function ExamList() {
                     </span>
                     <span className="detail-value">
                       {exam.mode === 'practical'
-                        ? exam.task_count || exam.practical_tasks?.length || 'N/A'
+                        ? exam.practical_count || exam.practical_count?.length || 'N/A'
                         : exam.question_count || exam.questions?.length || 'N/A'
                       }
                     </span>

@@ -7,7 +7,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     document.title = `${
-      user?.user_type === "admin" ? "Admin" : "Student"
+      user?.role === "admin" ? "Admin" : "Student"
     } Dashboard`;
   }, [user]);
 
