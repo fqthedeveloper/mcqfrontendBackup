@@ -1,9 +1,11 @@
+// src/components/Student/Exam/ExamList.js
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExam } from '../../context/examContext';
 import '../CSS/ExamList.css';
+import '../CSS/PracticalExam.css';
 
-export default function ExamList() {
+export function ExamList() {
   const { exams, fetchExams, startExam, loading, error } = useExam();
   const navigate = useNavigate();
 
@@ -15,6 +17,10 @@ export default function ExamList() {
     try {
       const session = await startExam(exam);
       
+      if (!session?.id) {
+        throw new Error('Failed to create exam session: Invalid session ID');
+      }
+
       if (exam.mode === 'strict') {
         navigate(`/student/exam/${session.id}`);
       } else if (exam.mode === 'practical') {
@@ -22,8 +28,19 @@ export default function ExamList() {
       }
     } catch (err) {
       console.error('Failed to start exam:', err);
-      const errorMsg = err.response?.data?.error || err.message;
-      alert(`Failed to start exam: ${errorMsg}`);
+      
+      let errorMsg = err.message;
+      
+      // Extract the most specific error message
+      if (err.message.includes('Container startup failed')) {
+        const errorParts = err.message.split(':');
+        const mainError = errorParts[0];
+        const details = errorParts.slice(1).join(':');
+        
+        alert(`${mainError}\n\nTechnical Details:\n${details}\n\nPlease ensure Docker is running and properly configured.`);
+      } else {
+        alert(err.message);
+      }
     }
   };
 
@@ -143,3 +160,5 @@ export default function ExamList() {
     </div>
   );
 }
+
+export default ExamList;

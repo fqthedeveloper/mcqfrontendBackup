@@ -1,9 +1,4 @@
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useRef
-} from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import { authGet, authPost } from '../../services/api';
@@ -89,15 +84,18 @@ export default function Exam() {
         setErrorMsg(null);
         setAlreadyCompletedError('');
 
+        // Fetch exam data
         const examData = await authGet(`/api/exams/${examId}/`, {
           signal: controller.signal,
         });
+        
         if (!isMounted) return;
         setExam(examData);
 
+        // Validate exam session
         let sessionData;
         try {
-          sessionData = await authGet(`/api/sessions/validate-exam/${examId}/`, {
+          sessionData = await authPost(`/api/sessions/validate-exam/${examId}/`, {}, {
             signal: controller.signal,
           });
         } catch (validateErr) {
@@ -119,6 +117,7 @@ export default function Exam() {
         setSession(sessionData);
         sessionRef.current = sessionData;
 
+        // Prepare questions
         let questionObjects = Array.isArray(examData.questions)
           ? examData.questions.map((eq) => eq.question)
           : [];
@@ -137,6 +136,7 @@ export default function Exam() {
 
         setQuestions(questionObjects);
 
+        // Initialize answers
         const initialAnswers = {};
         let savedElapsed = 0;
 
@@ -155,6 +155,7 @@ export default function Exam() {
           });
         }
 
+        // Load from localStorage if exists
         const storedAnswers = localStorage.getItem(STORAGE_KEY_ANSWERS);
         if (storedAnswers) {
           try {
@@ -172,6 +173,7 @@ export default function Exam() {
         setAnswers(initialAnswers);
         answersRef.current = initialAnswers;
 
+        // Handle elapsed time
         let initialElapsed = savedElapsed;
         const storedElapsed = localStorage.getItem(STORAGE_KEY_ELAPSED);
         if (storedElapsed !== null) {
@@ -182,6 +184,7 @@ export default function Exam() {
         elapsedRef.current = initialElapsed;
         setRemainingTime(totalTime - initialElapsed);
 
+        // Handle current index
         let idx = 0;
         const storedIndex = localStorage.getItem(STORAGE_KEY_INDEX);
         if (storedIndex !== null) {
@@ -193,7 +196,14 @@ export default function Exam() {
         setCurrentIndex(idx);
       } catch (err) {
         if (isMounted && err.name !== 'AbortError') {
-          setErrorMsg(err.response?.data?.error || err.message || 'Failed to load exam');
+          // Improved error handling
+          if (err.response?.status === 404) {
+            setErrorMsg('Exam not found. It may have been removed or you do not have permission to access it.');
+          } else if (err.response?.status === 401) {
+            setErrorMsg('Session expired. Please login again.');
+          } else {
+            setErrorMsg(err.response?.data?.detail || err.response?.data?.error || err.message || 'Failed to load exam');
+          }
         }
       } finally {
         if (isMounted && !alreadyCompletedError) {
@@ -219,7 +229,7 @@ export default function Exam() {
       Swal.fire({
         icon: 'error',
         title: 'Exam Loading Error',
-        text: 'You Exam Already Completed. No Retries Allowed.',
+        text: errorMsg,
         confirmButtonText: 'Go Back',
         allowOutsideClick: false,
       }).then(() => {
@@ -314,7 +324,9 @@ export default function Exam() {
   // Auto-submit when time runs out
   const finalSubmit = useCallback(
     async (terminationReason = null) => {
-      if (!sessionRef.current) return;
+      if (!sessionRef.current || submittedRef.current) return;
+      submittedRef.current = true;
+      
       try {
         const finalAnswers = Object.entries(answersRef.current).map(
           ([qId, sel]) => ({
@@ -338,6 +350,7 @@ export default function Exam() {
         submitExam(answersRef.current);
         navigate(`/student/results/${sessionRef.current.id}`);
       } catch (err) {
+        submittedRef.current = false;
         Swal.fire({
           icon: 'error',
           title: 'Submission Error',

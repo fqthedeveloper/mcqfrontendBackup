@@ -16,11 +16,15 @@ const PracticalTaskForm = ({ isEdit = false }) => {
     verification_command: '',
     duration: 60,
     subject: '',
-    is_published: false
+    is_published: false,
+    environment_vars: {},
+    allowed_commands: []
   });
   
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [envVars, setEnvVars] = useState([{ key: '', value: '' }]);
+  const [allowedCommands, setAllowedCommands] = useState(['']);
 
   useEffect(() => {
     document.title = isEdit ? 'Edit Practical Exam' : 'Create Practical Exam';
@@ -40,8 +44,26 @@ const PracticalTaskForm = ({ isEdit = false }) => {
             verification_command: taskData.verification_command,
             duration: taskData.duration,
             subject: taskData.subject.id,
-            is_published: taskData.is_published
+            is_published: taskData.is_published,
+            environment_vars: taskData.environment_vars,
+            allowed_commands: taskData.allowed_commands
           });
+          
+          // Convert environment vars object to array
+          if (taskData.environment_vars && typeof taskData.environment_vars === 'object') {
+            const envArray = Object.entries(taskData.environment_vars).map(([key, value]) => ({
+              key,
+              value
+            }));
+            setEnvVars(envArray.length ? envArray : [{ key: '', value: '' }]);
+          }
+          
+          // Set allowed commands
+          setAllowedCommands(
+            taskData.allowed_commands && taskData.allowed_commands.length 
+              ? [...taskData.allowed_commands, ''] 
+              : ['']
+          );
         } else if (subjectsData.length > 0) {
           setTask(prev => ({ ...prev, subject: subjectsData[0].id }));
         }
@@ -64,6 +86,42 @@ const PracticalTaskForm = ({ isEdit = false }) => {
     setTask(prev => ({ ...prev, [e.target.name]: e.target.checked }));
   };
 
+  // Environment Variables Handlers
+  const handleEnvVarChange = (index, field, value) => {
+    const newEnvVars = [...envVars];
+    newEnvVars[index][field] = value;
+    setEnvVars(newEnvVars);
+  };
+
+  const addEnvVar = () => {
+    setEnvVars([...envVars, { key: '', value: '' }]);
+  };
+
+  const removeEnvVar = (index) => {
+    if (envVars.length <= 1) return;
+    const newEnvVars = [...envVars];
+    newEnvVars.splice(index, 1);
+    setEnvVars(newEnvVars);
+  };
+
+  // Allowed Commands Handlers
+  const handleCommandChange = (index, value) => {
+    const newCommands = [...allowedCommands];
+    newCommands[index] = value;
+    setAllowedCommands(newCommands);
+  };
+
+  const addCommand = () => {
+    setAllowedCommands([...allowedCommands, '']);
+  };
+
+  const removeCommand = (index) => {
+    if (allowedCommands.length <= 1) return;
+    const newCommands = [...allowedCommands];
+    newCommands.splice(index, 1);
+    setAllowedCommands(newCommands);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -84,10 +142,23 @@ const PracticalTaskForm = ({ isEdit = false }) => {
       return;
     }
 
+    // Convert environment variables to object
+    const envVarsObj = {};
+    envVars.forEach(env => {
+      if (env.key.trim() !== '') {
+        envVarsObj[env.key.trim()] = env.value;
+      }
+    });
+
+    // Filter out empty commands
+    const filteredCommands = allowedCommands.filter(cmd => cmd.trim() !== '');
+
     const payload = {
       ...task,
       duration: parseInt(task.duration),
-      subject: parseInt(task.subject)
+      subject: parseInt(task.subject),
+      environment_vars: envVarsObj,
+      allowed_commands: filteredCommands
     };
 
     try {
@@ -161,7 +232,7 @@ const PracticalTaskForm = ({ isEdit = false }) => {
             value={task.docker_image} 
             onChange={handleChange} 
             required 
-            placeholder="e.g. ubuntu:latest"
+            placeholder="e.g. redhat/ubi8:latest"
           />
         </div>
         
@@ -199,6 +270,65 @@ const PracticalTaskForm = ({ isEdit = false }) => {
             min="1" 
             required 
           />
+        </div>
+        
+        {/* Environment Variables */}
+        <div className="form-group">
+          <label>Environment Variables</label>
+          {envVars.map((env, index) => (
+            <div key={index} className="env-var-row">
+              <input
+                type="text"
+                placeholder="Key"
+                value={env.key}
+                onChange={(e) => handleEnvVarChange(index, 'key', e.target.value)}
+              />
+              <input
+                type="text"
+                placeholder="Value"
+                value={env.value}
+                onChange={(e) => handleEnvVarChange(index, 'value', e.target.value)}
+              />
+              <button 
+                type="button" 
+                className={`btn-remove ${envVars.length <= 1 ? 'disabled' : ''}`}
+                onClick={() => removeEnvVar(index)}
+                disabled={envVars.length <= 1}
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+          <button type="button" className="btn-add" onClick={addEnvVar}>
+            + Add Variable
+          </button>
+        </div>
+        
+        {/* Allowed Commands */}
+        <div className="form-group">
+          <label>Allowed Commands</label>
+          <p className="hint">Leave empty to allow all commands</p>
+          {allowedCommands.map((cmd, index) => (
+            <div key={index} className="command-row">
+              <input
+                type="text"
+                value={cmd}
+                onChange={(e) => handleCommandChange(index, e.target.value)}
+                placeholder="e.g. ls, git, npm"
+              />
+              <button 
+                type="button" 
+                className={`btn-remove ${allowedCommands.length <= 1 ? 'disabled' : ''}`}
+                onClick={() => removeCommand(index)}
+                disabled={allowedCommands.length <= 1}
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+          <button type="button" className="btn-add" onClick={addCommand}>
+            + Add Command
+          </button>
         </div>
         
         <div className="form-checkbox">
