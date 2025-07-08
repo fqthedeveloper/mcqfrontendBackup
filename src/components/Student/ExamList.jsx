@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExam } from '../../context/examContext';
+import Swal from 'sweetalert2';
 import '../CSS/ExamList.css';
 import '../CSS/PracticalExam.css';
 
@@ -13,6 +14,23 @@ export function ExamList() {
   }, []);
 
   const handleStartExam = async (exam) => {
+    // Check if user has already taken this exam twice
+    if (exam.user_attempts >= 2) {
+      Swal.fire({
+        title: 'Attempt Limit Reached',
+        text: 'You have already taken this exam twice. Further attempts are not allowed.',
+        icon: 'warning',
+        confirmButtonText: 'OK',
+        customClass: {
+          container: 'swal-container',
+          popup: 'swal-popup',
+          title: 'swal-title',
+          confirmButton: 'swal-confirm-btn'
+        }
+      });
+      return;
+    }
+
     try {
       const session = await startExam(exam);
       
@@ -30,16 +48,25 @@ export function ExamList() {
       
       let errorMsg = err.message;
       
-      // Extract the most specific error message
       if (err.message.includes('Container startup failed') || 
           err.message.includes('Docker')) {
         const errorParts = err.message.split(':');
         const mainError = errorParts[0];
         const details = errorParts.slice(1).join(':');
         
-        alert(`${mainError}\n\nTechnical Details:\n${details}\n\nPlease ensure Docker is running and properly configured.`);
+        Swal.fire({
+          title: 'Environment Error',
+          html: `${mainError}<br><br><small>Technical Details:<br>${details}</small><br><br>Please ensure Docker is running and properly configured.`,
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
       } else {
-        alert(errorMsg);
+        Swal.fire({
+          title: 'Error Starting Exam',
+          text: errorMsg,
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
       }
     }
   };
@@ -94,7 +121,12 @@ export function ExamList() {
               <div key={exam.id} className="exam-card">
                 <div className="card-header">
                   <div className="exam-icon">📝</div>
-                  <h3 className="exam-title">{exam.title}</h3>
+                  <div className="exam-title-container">
+                    <h3 className="exam-title">{exam.title}</h3>
+                    {exam.user_attempts >= 1 && (
+                      <span className="attempt-limit-badge">Attempt Limit Reached</span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="detail-item">
@@ -119,18 +151,27 @@ export function ExamList() {
                     </span>
                   </div>
                   <div className="detail-item">
+                    <span className="detail-label">Attempts:</span>
+                    <span className="detail-value">
+                      {exam.user_attempts || 0}/1
+                    </span>
+                  </div>
+                  <div className="detail-item">
                     <span className="detail-label">Type Mode:</span>
                     <span className="detail-value">{exam.mode}</span>
                   </div>
                   <div className="detail-item">
                     <span className="detail-label">Status:</span>
-                    <span className="status-badge">Available</span>
+                    <span className={`status-badge ${exam.user_attempts >= 1 ? 'status-disabled' : ''}`}>
+                      {exam.user_attempts >= 1 ? 'Disabled' : 'Available'}
+                    </span>
                   </div>
                 </div>
 
                 <button 
-                  className={`start-exam-btn ${getButtonClass(exam.mode)}`}
-                  onClick={() => handleStartExam(exam)}
+                  className={`start-exam-btn ${getButtonClass(exam.mode)} ${exam.user_attempts >= 1 ? 'disabled-btn' : ''}`}
+                  onClick={() => exam.user_attempts >= 1 ? null : handleStartExam(exam)}
+                  disabled={exam.user_attempts >= 1}
                 >
                   {getButtonLabel(exam.mode)}
                 </button>
@@ -138,6 +179,12 @@ export function ExamList() {
                 {exam.mode === 'practical' && (
                   <div className="practical-note">
                     <span>⚠️ Note: Practical exams require a terminal session</span>
+                  </div>
+                )}
+                
+                {exam.user_attempts >= 1 && (
+                  <div className="attempt-warning">
+                    <span>❌ You've reached the maximum attempt limit for this exam</span>
                   </div>
                 )}
               </div>
@@ -155,6 +202,7 @@ export function ExamList() {
           {exams.some(exam => exam.mode === 'practical') && (
             <li>For practical exams, commands are executed in a secure environment</li>
           )}
+          <li>Each exam can be attempted maximum 2 times</li>
         </ul>
       </div>
     </div>

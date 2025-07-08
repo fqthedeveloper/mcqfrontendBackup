@@ -408,3 +408,138 @@
   font-size: 13px;
   color: #856404;
 }
+/* Add to ExamList.css */
+/* Responsive improvements */
+@media (max-width: 768px) {
+  .exams-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+  
+  .exam-card {
+    padding: 20px 15px;
+  }
+  
+  .exam-title {
+    font-size: 1.2rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .exams-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .exam-list-container {
+    padding: 10px;
+  }
+  
+  .exam-list-header h1 {
+    font-size: 1.6rem;
+  }
+  
+  .exam-list-header p {
+    font-size: 1rem;
+  }
+  
+  .exam-tips {
+    padding: 15px;
+  }
+}
+
+/* Attempt limit styles */
+.attempt-limit-badge {
+  background-color: #e74c3c;
+  color: white;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  margin-left: 10px;
+  font-weight: bold;
+}
+
+.attempt-warning {
+  margin-top: 10px;
+  padding: 8px;
+  background-color: #ffeef0;
+  border-left: 4px solid #e74c3c;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  color: #c0392b;
+}
+
+.status-disabled {
+  background-color: #95a5a6 !important;
+}
+
+.disabled-btn {
+  opacity: 0.6;
+  cursor: not-allowed !important;
+}
+
+.exam-title-container {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* SweetAlert2 customizations */
+.swal-container {
+  z-index: 10000 !important;
+}
+
+.swal-popup {
+  border-radius: 12px !important;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2) !important;
+}
+
+.swal-title {
+  color: #2c3e50 !important;
+  font-size: 1.5rem !important;
+}
+
+.swal-confirm-btn {
+  background-color: #3498db !important;
+  border-radius: 8px !important;
+  padding: 8px 20px !important;
+}
+
+/* Mobile-first adjustments */
+.exam-card {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Touch target sizing for mobile */
+.start-exam-btn {
+  min-height: 44px; /* Recommended minimum touch target size */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .exam-card {
+    border: 2px solid #000;
+  }
+  
+  .start-exam-btn {
+    border: 2px solid #000;
+  }
+}
+
+/* Landscape orientation fixes */
+@media (max-height: 500px) and (orientation: landscape) {
+  .exam-list-container {
+    padding: 10px 0;
+  }
+  
+  .exams-grid {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 15px;
+  }
+  
+  .exam-card {
+    padding: 15px;
+  }
+}
