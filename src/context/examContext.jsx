@@ -24,14 +24,6 @@ export const ExamProvider = ({ children }) => {
       const practicalWithMode = practicalExams.map(exam => ({ ...exam, mode: 'practical' }));
       
       setExams([...strictWithMode, ...practicalWithMode]);
-      
-      // Fetch sessions
-      try {
-        const sessionsResponse = await authGet('/api/sessions/');
-        setSessions(sessionsResponse);
-      } catch (sessionsError) {
-        console.warn('Could not fetch sessions:', sessionsError);
-      }
     } catch (err) {
       setError(err.message || 'Failed to load exams');
     } finally {
@@ -39,16 +31,14 @@ export const ExamProvider = ({ children }) => {
     }
   };
 
- const startExam = async (exam) => {
+  const startExam = async (exam) => {
     try {
-      let endpoint, payload;
+      let endpoint, payload = { exam: exam.id };
       
       if (exam.mode === 'strict') {
         endpoint = '/api/sessions/';
-        payload = { exam: exam.id };
       } else if (exam.mode === 'practical') {
         endpoint = '/api/practical-sessions/';
-        payload = { exam: exam.id };
       } else {
         throw new Error('Invalid exam mode');
       }

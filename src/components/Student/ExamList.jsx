@@ -1,4 +1,3 @@
-// src/components/Student/Exam/ExamList.js
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExam } from '../../context/examContext';
@@ -24,7 +23,7 @@ export function ExamList() {
       if (exam.mode === 'strict') {
         navigate(`/student/exam/${session.id}`);
       } else if (exam.mode === 'practical') {
-        navigate(`/student/practical/${session.id}?exam_id=${exam.id}`);
+        navigate(`/student/practical/${session.id}`);
       }
     } catch (err) {
       console.error('Failed to start exam:', err);
@@ -32,14 +31,15 @@ export function ExamList() {
       let errorMsg = err.message;
       
       // Extract the most specific error message
-      if (err.message.includes('Container startup failed')) {
+      if (err.message.includes('Container startup failed') || 
+          err.message.includes('Docker')) {
         const errorParts = err.message.split(':');
         const mainError = errorParts[0];
         const details = errorParts.slice(1).join(':');
         
         alert(`${mainError}\n\nTechnical Details:\n${details}\n\nPlease ensure Docker is running and properly configured.`);
       } else {
-        alert(err.message);
+        alert(errorMsg);
       }
     }
   };

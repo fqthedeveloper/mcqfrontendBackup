@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    command: daphne -b 0.0.0.0 -p 8000 project.asgi:application
+    volumes:
+      - ./backend:/app
+      - exam-data:/app/exam_data
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "8000:8000"
+    environment:
+      - DJANGO_SETTINGS_MODULE=project.settings
+      - DEBUG=1
+    networks:
+      - exam-network
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - REACT_APP_BACKEND_HOST=backend:8000
+    depends_on:
+      - backend
+    networks:
+      - exam-network
+
+networks:
+  exam-network:
+    driver: bridge
+
+volumes:
+  exam-data:
