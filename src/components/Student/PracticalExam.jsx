@@ -18,7 +18,6 @@ export default function PracticalExam() {
   const [error, setError] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('Connecting...');
   const [containerStatus, setContainerStatus] = useState('checking');
-  const [isTerminalReady, setIsTerminalReady] = useState(false);
 
   // Refs
   const terminalRef = useRef(null);
@@ -28,22 +27,16 @@ export default function PracticalExam() {
   const timerRef = useRef(null);
   const reconnectTimer = useRef(null);
   const containerCheckInterval = useRef(null);
-  const isMounted = useRef(true);
   const lastPong = useRef(Date.now());
 
   // Load session data
   useEffect(() => {
-    isMounted.current = true;
-    
     const loadSession = async () => {
       try {
         const sessionData = await authGet(`/api/practical-sessions/${sessionId}/`);
         setSession(sessionData);
         setExam(await authGet(`/api/practical-exams/${sessionData.exam}/`));
-
-        // Start container status polling
         startContainerStatusPolling();
-        
         setLoading(false);
       } catch (err) {
         setError(err.message || 'Failed to load session');
@@ -53,10 +46,7 @@ export default function PracticalExam() {
 
     loadSession();
 
-    return () => {
-      isMounted.current = false;
-      cleanupResources();
-    };
+    return cleanupResources;
   }, [sessionId]);
 
   // Initialize terminal
@@ -64,54 +54,39 @@ export default function PracticalExam() {
     if (!session || !exam) return;
 
     initTerminal();
-    setIsTerminalReady(true);
 
     return () => {
-      if (terminal.current) {
-        terminal.current.dispose();
-        terminal.current = null;
-      }
-      if (fitAddon.current) {
-        fitAddon.current.dispose();
-        fitAddon.current = null;
-      }
-      if (websocket.current) {
-        websocket.current.close();
-        websocket.current = null;
-      }
+      if (terminal.current) terminal.current.dispose();
+      if (fitAddon.current) fitAddon.current.dispose();
+      if (websocket.current) websocket.current.close();
     };
   }, [session, exam]);
 
-  // Connect to terminal when container is ready
+  // Connect when container ready
   useEffect(() => {
-    if (containerStatus === 'running' && isTerminalReady) {
-      setTimeout(() => {
-        initWebSocket();
-      }, 1000);
-    } else if (containerStatus !== 'running' && websocket.current) {
+    if (containerStatus === 'running') {
+      setTimeout(initWebSocket, 1000);
+    } else if (websocket.current) {
       websocket.current.close();
-      websocket.current = null;
       setConnectionStatus('Container stopped');
     }
-  }, [containerStatus, isTerminalReady]);
+  }, [containerStatus]);
 
-  // Handle session timer
+  // Timer
   useEffect(() => {
     if (session && exam && session.status === 'running') {
       const totalTime = exam.duration * 60;
       const startTime = new Date(session.start_time).getTime();
-      const now = Date.now();
-      const elapsedSeconds = Math.floor((now - startTime) / 1000);
+      const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
       setRemainingTime(Math.max(0, totalTime - elapsedSeconds));
 
       timerRef.current = setInterval(() => {
         setRemainingTime(prev => {
-          const newTime = prev - 1;
-          if (newTime <= 0) {
+          if (prev <= 1) {
             submitExam();
             return 0;
           }
-          return newTime;
+          return prev - 1;
         });
       }, 1000);
 
@@ -119,9 +94,8 @@ export default function PracticalExam() {
     }
   }, [session, exam]);
 
-  // Initialize terminal UI
   const initTerminal = () => {
-    if (!terminalRef.current || terminal.current) return;
+    if (terminal.current || !terminalRef.current) return;
 
     terminal.current = new Terminal({
       cursorBlink: true,
@@ -136,32 +110,23 @@ export default function PracticalExam() {
     terminal.current.open(terminalRef.current);
     fitAddon.current.fit();
 
-    // Handle window resize
-    const resizeHandler = () => fitAddon.current && fitAddon.current.fit();
-    window.addEventListener('resize', resizeHandler);
+    window.addEventListener('resize', () => fitAddon.current.fit());
 
-    // Show initial message
     if (containerStatus !== 'running') {
       terminal.current.writeln('\r\n⏳ Waiting for container to start...\r\n');
       setConnectionStatus('Waiting for container');
     }
   };
 
-  // Start container status polling
   const startContainerStatusPolling = () => {
-    if (containerCheckInterval.current) {
-      clearInterval(containerCheckInterval.current);
-    }
-    
+    clearInterval(containerCheckInterval.current);
     containerCheckInterval.current = setInterval(async () => {
       try {
         const statusRes = await authGet(
           `/api/practical-sessions/${sessionId}/container_status/`
         );
         setContainerStatus(statusRes.status);
-        
-        // If container ID was null but now exists, update session
-        if (session && !session.container_id && statusRes.container_id) {
+        if (statusRes.container_id && session && !session.container_id) {
           setSession(prev => ({ ...prev, container_id: statusRes.container_id }));
         }
       } catch (e) {
@@ -170,32 +135,22 @@ export default function PracticalExam() {
     }, 3000);
   };
 
-  // Initialize WebSocket connection
   const initWebSocket = () => {
-    if (!session || !session.token) {
-      console.error('Session token not available');
-      return;
-    }
-    
-    if (websocket.current) {
-      websocket.current.close();
-      websocket.current = null;
-    }
+    if (!session?.token) return;
+
+    if (websocket.current) websocket.current.close();
 
     const isSecure = baseURL.startsWith('https');
     const wsProtocol = isSecure ? 'wss' : 'ws';
-    const host = baseURL.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
-    
+    const host = baseURL.replace(/^https?:\/\//, '').split('/')[0];
     const token = encodeURIComponent(session.token);
     const wsUrl = `${wsProtocol}://${host}/ws/practical/${sessionId}/?token=${token}`;
 
     setConnectionStatus('Connecting to terminal...');
-    
-    if (terminal.current) {
-      terminal.current.writeln('\r\n🔌 Connecting to exam environment...\r\n');
-    }
+    terminal.current?.writeln('\r\n🔌 Connecting to exam environment...\r\n');
 
     websocket.current = new WebSocket(wsUrl);
+    websocket.current.binaryType = 'arraybuffer';  // Critical fix
 
     websocket.current.onopen = () => {
       setConnectionStatus('Connected to terminal');
@@ -203,136 +158,75 @@ export default function PracticalExam() {
       
       if (terminal.current) {
         terminal.current.writeln('\r\n✅ Connected to exam environment\r\n');
-        
-        // Handle terminal input
         terminal.current.onData(data => {
-          if (websocket.current && websocket.current.readyState === WebSocket.OPEN) {
-            // Send as UTF-8 encoded text
-            websocket.current.send(data);
-          }
+          websocket.current?.readyState === WebSocket.OPEN && websocket.current.send(data);
         });
         
-        // Start heartbeat monitoring
         startHeartbeat();
-        
-        // Trigger initial prompt
-        setTimeout(() => {
-          terminal.current.write('\r\n');
-        }, 500);
+        setTimeout(() => terminal.current.write('\r\n'), 500);
       }
     };
 
     websocket.current.onerror = (error) => {
       setConnectionStatus(`Terminal error: ${error.message || 'Unknown error'}`);
-      
-      if (terminal.current) {
-        terminal.current.writeln(`\r\n❌ Connection error: ${error.message || 'Unknown error'}\r\n`);
-      }
+      terminal.current?.writeln(`\r\n❌ Connection error: ${error.message || 'Unknown error'}\r\n`);
     };
 
     websocket.current.onclose = (event) => {
       setConnectionStatus(`Terminal disconnected: ${event.reason || 'Unknown reason'}`);
-      
-      if (terminal.current) {
-        terminal.current.writeln(`\r\n🔌 Connection closed: ${event.reason || 'Unknown reason'}\r\n`);
-      }
+      terminal.current?.writeln(`\r\n🔌 Connection closed: ${event.reason || 'Unknown reason'}\r\n`);
     };
 
-    // Handle incoming messages
     websocket.current.onmessage = (event) => {
       lastPong.current = Date.now();
       
       if (typeof event.data === 'string') {
-        // Handle control messages (ping)
-        if (event.data.startsWith('{')) {
-          try {
-            const message = JSON.parse(event.data);
-            if (message.type === 'ping') {
-              // Respond to ping with pong
-              websocket.current.send(JSON.stringify({
-                type: 'pong',
-                timestamp: message.timestamp
-              }));
-              return;
-            }
-          } catch (e) {
-            // Not JSON, fall through to terminal output
+        try {
+          const message = JSON.parse(event.data);
+          if (message.type === 'ping') {
+            websocket.current.send(JSON.stringify({
+              type: 'pong',
+              timestamp: message.timestamp
+            }));
+            return;
           }
+        } catch (e) {
+          // Not JSON, treat as terminal output
+          terminal.current?.write(event.data);
         }
-        
-        // Write to terminal
-        if (terminal.current) {
-          terminal.current.write(event.data);
-        }
-      } 
-      // Handle binary data (container output)
-      else if (event.data instanceof ArrayBuffer) {
-        const data = new Uint8Array(event.data);
-        const str = new TextDecoder().decode(data);
-        if (terminal.current) {
-          terminal.current.write(str);
-        }
-      }
-      // Handle Blob data (alternative binary format)
-      else if (event.data instanceof Blob) {
-        const reader = new FileReader();
-        reader.onload = () => {
-          if (terminal.current && typeof reader.result === 'string') {
-            terminal.current.write(reader.result);
-          }
-        };
-        reader.readAsText(event.data);
+      } else {
+        // Handle binary data properly
+        terminal.current?.write(new Uint8Array(event.data));
       }
     };
   };
 
-  // Start heartbeat monitoring
   const startHeartbeat = () => {
-    // Clear any existing heartbeat
-    if (reconnectTimer.current) {
-      clearInterval(reconnectTimer.current);
-    }
-    
-    // Check connection every 15 seconds
+    clearInterval(reconnectTimer.current);
     reconnectTimer.current = setInterval(() => {
-      const now = Date.now();
-      if (now - lastPong.current > 30000) { // 30 seconds without pong
+      if (Date.now() - lastPong.current > 30000) {
         setConnectionStatus('Reconnecting due to missed heartbeats...');
-        if (terminal.current) {
-          terminal.current.writeln('\r\n♻️ Reconnecting due to missed heartbeats...\r\n');
-        }
+        terminal.current?.writeln('\r\n♻️ Reconnecting due to missed heartbeats...\r\n');
         initWebSocket();
       }
     }, 15000);
   };
 
-  // Restart container
   const restartContainer = async () => {
     try {
       setConnectionStatus('Restarting container...');
-      
-      if (terminal.current) {
-        terminal.current.writeln('\r\n♻️ Restarting container...\r\n');
-      }
-      
+      terminal.current?.writeln('\r\n♻️ Restarting container...\r\n');
       await authPost(`/api/practical-sessions/${sessionId}/restart_container/`, {});
-      
-      // Reset container status and force re-check
       setContainerStatus('starting');
       startContainerStatusPolling();
     } catch (err) {
       setConnectionStatus('Restart failed');
-      
-      if (terminal.current) {
-        terminal.current.writeln(`\r\n❌ Restart failed: ${err.message}\r\n`);
-      }
+      terminal.current?.writeln(`\r\n❌ Restart failed: ${err.message}\r\n`);
     }
   };
 
-  // Submit exam
   const submitExam = async () => {
     if (!session) return;
-
     try {
       await authPost(`/api/practical-sessions/${session.id}/terminate/`, {
         reason: 'Exam submitted by student'
@@ -340,45 +234,37 @@ export default function PracticalExam() {
       navigate(`/student/results/${session.id}`);
     } catch (err) {
       setError('Failed to submit exam: ' + err.message);
-      if (terminal.current) {
-        terminal.current.writeln(`\r\n❌ Submission error: ${err.message}\r\n`);
-      }
+      terminal.current?.writeln(`\r\n❌ Submission error: ${err.message}\r\n`);
     }
   };
 
-  // Format time display
   const formatTime = (sec) => {
     const m = Math.floor(sec / 60).toString().padStart(2, '0');
     const s = (sec % 60).toString().padStart(2, '0');
     return `${m}:${s}`;
   };
 
-  // Cleanup resources
   const cleanupResources = () => {
-    if (websocket.current) websocket.current.close();
-    if (terminal.current) terminal.current.dispose();
-    if (timerRef.current) clearInterval(timerRef.current);
-    if (reconnectTimer.current) clearInterval(reconnectTimer.current);
-    if (containerCheckInterval.current) clearInterval(containerCheckInterval.current);
+    websocket.current?.close();
+    terminal.current?.dispose();
+    clearInterval(timerRef.current);
+    clearInterval(reconnectTimer.current);
+    clearInterval(containerCheckInterval.current);
   };
 
-  if (loading) {
-    return <div className="p-4 text-center">Loading exam environment...</div>;
-  }
+  if (loading) return <div className="p-4 text-center">Loading exam environment...</div>;
 
-  if (error) {
-    return (
-      <div className="p-4 text-center text-red-500">
-        {error}
-        <button 
-          className="ml-4 px-4 py-2 bg-blue-500 text-white rounded"
-          onClick={() => navigate('/student')}
-        >
-          Go Back
-        </button>
-      </div>
-    );
-  }
+  if (error) return (
+    <div className="p-4 text-center text-red-500">
+      {error}
+      <button 
+        className="ml-4 px-4 py-2 bg-blue-500 text-white rounded"
+        onClick={() => navigate('/student')}
+      >
+        Go Back
+      </button>
+    </div>
+  );
 
   return (
     <div className="practical-container h-screen flex flex-col">
@@ -398,15 +284,12 @@ export default function PracticalExam() {
               </span>
             </div>
           </div>
-          
-          <div className="flex space-x-2">
-            <button 
-              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-              onClick={submitExam}
-            >
-              Submit Exam
-            </button>
-          </div>
+          <button 
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+            onClick={submitExam}
+          >
+            Submit Exam
+          </button>
         </div>
       </div>
 
@@ -416,10 +299,7 @@ export default function PracticalExam() {
             <h2 className="text-lg font-semibold mb-4">Exam Instructions</h2>
             {exam && (
               <>
-                <div className="mb-4">
-                  <pre className="whitespace-pre-wrap font-sans">{exam.description}</pre>
-                </div>
-                
+                <pre className="whitespace-pre-wrap font-sans mb-4">{exam.description}</pre>
                 {exam.verification_command && (
                   <div className="mt-4 p-3 bg-gray-50 rounded">
                     <h3 className="font-medium">Verification Command:</h3>
@@ -453,10 +333,7 @@ export default function PracticalExam() {
           </div>
           
           <div className="flex-1 bg-black p-2">
-            <div 
-              ref={terminalRef} 
-              className="h-full w-full"
-            />
+            <div ref={terminalRef} className="h-full w-full" />
           </div>
           
           <div className="bg-gray-800 text-white p-2 text-sm">

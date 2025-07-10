@@ -128,6 +128,7 @@ export function ExamList() {
                     )}
                   </div>
                 </div>
+                
 
                 <div className="detail-item">
                   <span className="detail-label">Subject:</span>
