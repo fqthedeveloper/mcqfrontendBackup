@@ -1,6 +1,7 @@
+// AddStudent.jsx
 import React, { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
-import { authPost } from '../../services/api';
+import { authPost, authGet } from '../../services/api';
 
 export default function AddStudent() {
   useEffect(() => {
@@ -12,51 +13,84 @@ export default function AddStudent() {
     username: '',
     first_name: '',
     last_name: '',
+    subject_ids: []
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [availableSubjects, setAvailableSubjects] = useState([]);
 
-  const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
-const handleSubmit = async e => {
-  e.preventDefault();
-  setIsSubmitting(true);
+  useEffect(() => {
+    fetchSubjects();
+  }, []);
 
-  try {
-    await authPost('/api/students/', form);
-    Swal.fire({
-      icon: 'success',
-      title: 'Student added successfully',
-      text: 'Credentials sent via email.',
-    });
-    setForm({ email: '', username: '', first_name: '', last_name: '' });
-  } catch (error) {
-    // Try to extract a meaningful error message
-    let message = 'An unexpected error occurred';
-
-    if (error.response && error.response.data) {
-      // Axios error format
-      if (error.response.data.detail) {
-        message = error.response.data.detail;
-      } else if (typeof error.response.data === 'string') {
-        message = error.response.data;
-      } else if (typeof error.response.data === 'object') {
-        // Sometimes errors come as objects with field keys
-        message = Object.values(error.response.data).flat().join(' ') || message;
-      }
-    } else if (error.detail) {
-      message = error.detail;
-    } else if (error.message) {
-      message = error.message;
+  const fetchSubjects = async () => {
+    try {
+      const response = await authGet('/api/subjects/');
+      setAvailableSubjects(response.data || response);
+    } catch (error) {
+      console.error('Error fetching subjects:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Failed to load subjects'
+      });
     }
+  };
 
-    Swal.fire({
-      icon: 'error',
-      title: 'Error',
-      text: message,
-    });
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+  const handleChange = e => {
+    const { name, value } = e.target;
+    setForm({ ...form, [name]: value });
+  };
+
+  const handleSubjectChange = e => {
+    const selectedOptions = Array.from(e.target.selectedOptions);
+    const selectedSubjectIds = selectedOptions.map(option => parseInt(option.value));
+    setForm({ ...form, subject_ids: selectedSubjectIds });
+  };
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      await authPost('/api/students/', form);
+      Swal.fire({
+        icon: 'success',
+        title: 'Student added successfully',
+        text: 'Credentials sent via email.',
+      });
+      setForm({ 
+        email: '', 
+        username: '', 
+        first_name: '', 
+        last_name: '',
+        subject_ids: [] 
+      });
+    } catch (error) {
+      let message = 'An unexpected error occurred';
+
+      if (error.response && error.response.data) {
+        if (error.response.data.detail) {
+          message = error.response.data.detail;
+        } else if (typeof error.response.data === 'string') {
+          message = error.response.data;
+        } else if (typeof error.response.data === 'object') {
+          message = Object.values(error.response.data).flat().join(' ') || message;
+        }
+      } else if (error.detail) {
+        message = error.detail;
+      } else if (error.message) {
+        message = error.message;
+      }
+
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: message,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="form-container">
@@ -117,6 +151,25 @@ const handleSubmit = async e => {
           />
         </div>
 
+        <div className="form-group">
+          <label htmlFor="subject_ids">Subjects</label>
+          <select
+            id="subject_ids"
+            name="subject_ids"
+            multiple
+            value={form.subject_ids}
+            onChange={handleSubjectChange}
+            className="subject-select"
+          >
+            {availableSubjects.map(subject => (
+              <option key={subject.id} value={subject.id}>
+                {subject.name}
+              </option>
+            ))}
+          </select>
+          <div className="select-hint">Hold Ctrl/Cmd to select multiple subjects</div>
+        </div>
+
         <button
           type="submit"
           disabled={isSubmitting}
@@ -155,7 +208,7 @@ const handleSubmit = async e => {
           color: #333;
         }
         
-        input {
+        input, select {
           width: 100%;
           padding: 0.8rem;
           border: 1px solid #ddd;
@@ -165,10 +218,20 @@ const handleSubmit = async e => {
           transition: border-color 0.3s;
         }
         
-        input:focus {
+        input:focus, select:focus {
           border-color: #3498db;
           outline: none;
           box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
+        
+        .subject-select {
+          height: 120px;
+        }
+        
+        .select-hint {
+          font-size: 0.8rem;
+          color: #666;
+          margin-top: 0.3rem;
         }
         
         .submit-btn {

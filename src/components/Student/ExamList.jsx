@@ -1,9 +1,10 @@
-import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useExam } from '../../context/examContext';
-import Swal from 'sweetalert2';
-import '../CSS/ExamList.css';
-import '../CSS/PracticalExam.css';
+import React, { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useExam } from "../../context/examContext";
+import { authPost } from "../../services/api";
+import Swal from "sweetalert2";
+import "../CSS/ExamList.css";
+import "../CSS/PracticalExam.css";
 
 export function ExamList() {
   const { exams, fetchExams, startExam, loading, error } = useExam();
@@ -14,19 +15,12 @@ export function ExamList() {
   }, []);
 
   const handleStartExam = async (exam) => {
-    // Check if user has already taken this exam twice
     if (exam.user_attempts >= 2) {
       Swal.fire({
-        title: 'Attempt Limit Reached',
-        text: 'You have already taken this exam twice. Further attempts are not allowed.',
-        icon: 'warning',
-        confirmButtonText: 'OK',
-        customClass: {
-          container: 'swal-container',
-          popup: 'swal-popup',
-          title: 'swal-title',
-          confirmButton: 'swal-confirm-btn'
-        }
+        title: "Attempt Limit Reached",
+        text: "You have already taken this exam twice. Further attempts are not allowed.",
+        icon: "warning",
+        confirmButtonText: "OK",
       });
       return;
     }
@@ -35,37 +29,59 @@ export function ExamList() {
       const session = await startExam(exam);
       
       if (!session?.id) {
-        throw new Error('Failed to create exam session: Invalid session ID');
+        throw new Error("Failed to create exam session: Invalid session ID");
       }
 
-      if (exam.mode === 'strict') {
+      if (exam.mode === "strict") {
         navigate(`/student/exam/${session.id}`);
-      } else if (exam.mode === 'practical') {
+      } else if (exam.mode === "practical") {
         navigate(`/student/practical/${session.id}`);
       }
     } catch (err) {
-      console.error('Failed to start exam:', err);
-      
-      let errorMsg = err.message;
-      
-      if (err.message.includes('Container startup failed') || 
-          err.message.includes('Docker')) {
-        const errorParts = err.message.split(':');
+      console.error("Failed to start exam:", err);
+
+      let errorMsg = err.response?.data?.error || err.message || "Unknown error";
+
+      // Handle active session case
+      if (errorMsg.toLowerCase().includes("active session already exists")) {
+        try {
+          // Try to get the existing session
+          const existingSession = await authPost(
+            `/api/sessions/validate-exam/${exam.id}/`,
+            {}
+          );
+
+          if (existingSession?.id) {
+            if (exam.mode === "strict") {
+              navigate(`/student/exam/${existingSession.id}`);
+            } else if (exam.mode === "practical") {
+              navigate(`/student/practical/${existingSession.id}`);
+            }
+            return;
+          }
+        } catch (validationError) {
+          errorMsg = validationError.response?.data?.error || validationError.message;
+        }
+      }
+
+      // Handle Docker/container errors
+      if (errorMsg.includes("Container startup failed") || errorMsg.includes("Docker")) {
+        const errorParts = errorMsg.split(":");
         const mainError = errorParts[0];
-        const details = errorParts.slice(1).join(':');
-        
+        const details = errorParts.slice(1).join(":");
+
         Swal.fire({
-          title: 'Environment Error',
+          title: "Environment Error",
           html: `${mainError}<br><br><small>Technical Details:<br>${details}</small><br><br>Please ensure Docker is running and properly configured.`,
-          icon: 'error',
-          confirmButtonText: 'OK'
+          icon: "error",
+          confirmButtonText: "OK",
         });
       } else {
         Swal.fire({
-          title: 'Error Starting Exam',
+          title: "Error Starting Exam",
           text: errorMsg,
-          icon: 'error',
-          confirmButtonText: 'OK'
+          icon: "error",
+          confirmButtonText: "OK",
         });
       }
     }
@@ -79,11 +95,11 @@ export function ExamList() {
   };
 
   const getButtonLabel = (mode) => {
-    return mode === 'strict' ? 'Start Strict Exam' : 'Start Practical Exam';
+    return mode === "strict" ? "Start Strict Exam" : "Start Practical Exam";
   };
 
   const getButtonClass = (mode) => {
-    return mode === 'strict' ? 'strict-exam-btn' : 'practical-exam-btn';
+    return mode === "strict" ? "strict-exam-btn" : "practical-exam-btn";
   };
 
   return (
@@ -124,11 +140,12 @@ export function ExamList() {
                   <div className="exam-title-container">
                     <h3 className="exam-title">{exam.title}</h3>
                     {exam.user_attempts >= 1 && (
-                      <span className="attempt-limit-badge">Attempt Limit Reached</span>
+                      <span className="attempt-limit-badge">
+                        Attempt Limit Reached
+                      </span>
                     )}
                   </div>
                 </div>
-                
 
                 <div className="detail-item">
                   <span className="detail-label">Subject:</span>
@@ -138,17 +155,18 @@ export function ExamList() {
                 <div className="exam-details">
                   <div className="detail-item">
                     <span className="detail-label">Duration:</span>
-                    <span className="detail-value">{formatDuration(exam.duration)}</span>
+                    <span className="detail-value">
+                      {formatDuration(exam.duration)}
+                    </span>
                   </div>
                   <div className="detail-item">
                     <span className="detail-label">
-                      {exam.mode === 'practical' ? 'Tasks:' : 'Questions:'}
+                      {exam.mode === "practical" ? "Tasks:" : "Questions:"}
                     </span>
                     <span className="detail-value">
-                      {exam.mode === 'practical'
-                        ? exam.practical_count || exam.practical_count?.length || 'N/A'
-                        : exam.question_count || exam.questions?.length || 'N/A'
-                      }
+                      {exam.mode === "practical"
+                        ? exam.practical_count || "N/A"
+                        : exam.question_count || "N/A"}
                     </span>
                   </div>
                   <div className="detail-item">
@@ -163,29 +181,41 @@ export function ExamList() {
                   </div>
                   <div className="detail-item">
                     <span className="detail-label">Status:</span>
-                    <span className={`status-badge ${exam.user_attempts >= 1 ? 'status-disabled' : ''}`}>
-                      {exam.user_attempts >= 1 ? 'Disabled' : 'Available'}
+                    <span
+                      className={`status-badge ${
+                        exam.user_attempts >= 1 ? "status-disabled" : ""
+                      }`}
+                    >
+                      {exam.user_attempts >= 1 ? "Disabled" : "Available"}
                     </span>
                   </div>
                 </div>
 
-                <button 
-                  className={`start-exam-btn ${getButtonClass(exam.mode)} ${exam.user_attempts >= 1 ? 'disabled-btn' : ''}`}
-                  onClick={() => exam.user_attempts >= 1 ? null : handleStartExam(exam)}
-                  disabled={exam.user_attempts >= 1}
+                <button
+                  className={`start-exam-btn ${getButtonClass(exam.mode)} ${
+                    exam.user_attempts >= 1 ? "disabled-btn" : ""
+                  }`}
+                  onClick={() =>
+                    exam.user_attempts >= 1 ? null : handleStartExam(exam)
+                  }
+                  disabled={exam.user_attempts >= 2}
                 >
                   {getButtonLabel(exam.mode)}
                 </button>
-                
-                {exam.mode === 'practical' && (
+
+                {exam.mode === "practical" && (
                   <div className="practical-note">
-                    <span>⚠️ Note: Practical exams require a terminal session</span>
+                    <span>
+                      ⚠️ Note: Practical exams require a terminal session
+                    </span>
                   </div>
                 )}
-                
+
                 {exam.user_attempts >= 1 && (
                   <div className="attempt-warning">
-                    <span>❌ You've reached the maximum attempt limit for this exam</span>
+                    <span>
+                      ❌ You've reached the maximum attempt limit for this exam
+                    </span>
                   </div>
                 )}
               </div>
@@ -200,8 +230,10 @@ export function ExamList() {
           <li>Ensure you have a stable internet connection</li>
           <li>Find a quiet environment for your exam</li>
           <li>Have all necessary materials ready before starting</li>
-          {exams.some(exam => exam.mode === 'practical') && (
-            <li>For practical exams, commands are executed in a secure environment</li>
+          {exams.some((exam) => exam.mode === "practical") && (
+            <li>
+              For practical exams, commands are executed in a secure environment
+            </li>
           )}
           <li>Each exam can be attempted maximum 2 times</li>
         </ul>
