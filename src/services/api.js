@@ -1,5 +1,5 @@
 // src/services/api.js
-export const baseURL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+export const baseURL = 'http://localhost:8000';
 
 // Token management
 export const getAccessToken = () => localStorage.getItem('access_token');

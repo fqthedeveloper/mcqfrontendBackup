@@ -1,3 +1,4 @@
+// React component (PracticalExam.js) - fixed version
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Terminal } from 'xterm';
@@ -6,6 +7,7 @@ import 'xterm/css/xterm.css';
 import { authGet, authPost, baseURL } from '../../services/api';
 import '../CSS/PracticalExam.css';
 
+// WebSocket connection management
 export default function PracticalExam() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
@@ -20,6 +22,7 @@ export default function PracticalExam() {
   const [vmStatus, setVmStatus] = useState('checking');
   const [isTerminalReady, setIsTerminalReady] = useState(false);
   const [vmErrorDetails, setVmErrorDetails] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   // Refs
   const terminalRef = useRef(null);
@@ -43,10 +46,9 @@ export default function PracticalExam() {
         const examData = await authGet(`/api/practical-exams/${sessionData.exam}/`);
         setExam(examData);
         
-        // Check if VM is already in error state
-        if (sessionData.vm_status === 'error') {
+        if (sessionData.status === 'failed' || sessionData.status === 'terminated') {
           setVmStatus('error');
-          setVmErrorDetails(sessionData.vm_error_details || 'VM initialization failed');
+          setVmErrorDetails(sessionData.termination_reason || 'VM initialization failed');
         } else {
           startVmStatusPolling();
         }
@@ -64,11 +66,24 @@ export default function PracticalExam() {
       isMounted.current = false;
       cleanupResources();
     };
-  }, [sessionId]);
+  }, [sessionId, retryCount]);
 
   // Initialize terminal
   useEffect(() => {
     if (!session || !exam || !terminalRef.current) return;
+    
+    if (terminal.current) {
+      // Terminal already initialized, just clear and update
+      terminal.current.clear();
+      if (vmStatus === 'error') {
+        terminal.current.writeln('\r\n❌ VM Error: ' + (vmErrorDetails || 'Failed to start VM') + '\r\n');
+        terminal.current.writeln('Please contact your instructor for assistance.\r\n');
+      } else if (vmStatus !== 'running') {
+        terminal.current.writeln('\r\n⏳ Waiting for VM to start...\r\n');
+        setConnectionStatus('Waiting for VM');
+      }
+      return;
+    }
     
     terminal.current = new Terminal({
       cursorBlink: true,
@@ -80,75 +95,70 @@ export default function PracticalExam() {
 
     fitAddon.current = new FitAddon();
     terminal.current.loadAddon(fitAddon.current);
-    terminal.current.open(terminalRef.current);
     
-    const fitTerminal = () => {
-      if (fitAddon.current) {
-        try {
-          fitAddon.current.fit();
-        } catch (e) {
-          console.error('Terminal fit error:', e);
+    const terminalContainer = terminalRef.current;
+    if (terminalContainer && terminalContainer.offsetWidth > 0 && terminalContainer.offsetHeight > 0) {
+      terminal.current.open(terminalContainer);
+      
+      const fitTerminal = () => {
+        if (fitAddon.current && terminalContainer.offsetWidth > 0) {
+          try {
+            fitAddon.current.fit();
+          } catch (e) {
+            console.error('Terminal fit error:', e);
+          }
         }
-      }
-    };
-    
-    // Initial fit
-    setTimeout(fitTerminal, 100);
-    
-    // Handle resize
-    resizeHandlerRef.current = () => {
-      if (fitAddon.current) {
-        try {
-          fitAddon.current.fit();
-        } catch (e) {
-          console.error('Terminal resize error:', e);
+      };
+      
+      setTimeout(fitTerminal, 100);
+      
+      resizeHandlerRef.current = () => {
+        if (fitAddon.current && terminalContainer.offsetWidth > 0) {
+          try {
+            fitAddon.current.fit();
+          } catch (e) {
+            console.error('Terminal resize error:', e);
+          }
         }
-      }
-    };
-    
-    window.addEventListener('resize', resizeHandlerRef.current);
+      };
+      
+      window.addEventListener('resize', resizeHandlerRef.current);
 
-    if (vmStatus === 'error') {
-      terminal.current.writeln('\r\n❌ VM Error: ' + (vmErrorDetails || 'Failed to start VM') + '\r\n');
-      terminal.current.writeln('Please contact your instructor for assistance.\r\n');
-    } else if (vmStatus !== 'running') {
-      terminal.current.writeln('\r\n⏳ Waiting for VM to start...\r\n');
-      setConnectionStatus('Waiting for VM');
+      if (vmStatus === 'error') {
+        terminal.current.writeln('\r\n❌ VM Error: ' + (vmErrorDetails || 'Failed to start VM') + '\r\n');
+        terminal.current.writeln('Please contact your instructor for assistance.\r\n');
+      } else if (vmStatus !== 'running') {
+        terminal.current.writeln('\r\n⏳ Waiting for VM to start...\r\n');
+        setConnectionStatus('Waiting for VM');
+      }
+
+      terminal.current.onData(data => {
+        if (websocket.current && websocket.current.readyState === WebSocket.OPEN) {
+          websocket.current.send(data);
+        } else if (terminal.current) {
+          // Echo input if not connected
+          terminal.current.write(data);
+        }
+      });
+
+      setIsTerminalReady(true);
     }
-
-    terminal.current.onData(data => {
-      if (websocket.current && websocket.current.readyState === WebSocket.OPEN) {
-        websocket.current.send(data);
-      }
-    });
-
-    setIsTerminalReady(true);
 
     return () => {
       if (resizeHandlerRef.current) {
         window.removeEventListener('resize', resizeHandlerRef.current);
       }
-      
-      if (terminal.current) {
-        terminal.current.dispose();
-        terminal.current = null;
-      }
-      
-      if (fitAddon.current) {
-        fitAddon.current.dispose();
-        fitAddon.current = null;
-      }
-      
-      setIsTerminalReady(false);
     };
   }, [session, exam, vmStatus, vmErrorDetails]);
 
   // Connect to terminal when VM is ready
   useEffect(() => {
     if (vmStatus === 'running' && isTerminalReady) {
-      setTimeout(() => {
+      // Small delay to ensure VM is fully ready
+      const timer = setTimeout(() => {
         initWebSocket();
-      }, 1000);
+      }, 2000);
+      return () => clearTimeout(timer);
     } else if (vmStatus !== 'running' && websocket.current) {
       websocket.current.close();
       websocket.current = null;
@@ -187,28 +197,24 @@ export default function PracticalExam() {
     }
     
     vmCheckInterval.current = setInterval(async () => {
+      if (!isMounted.current) return;
+      
       try {
         const statusRes = await authGet(
-          `/api/practical-sessions/${sessionId}/container_status/`
+          `/api/practical-sessions/${sessionId}/vm_status/`
         );
         
-        // Handle backend errors gracefully
         if (statusRes && statusRes.status) {
           setVmStatus(statusRes.status);
-          if (statusRes.error) {
-            setVmErrorDetails(statusRes.error);
+          
+          // If VM is running but session status is still starting, update session
+          if (statusRes.status === 'running' && session && session.status === 'starting') {
+            const updatedSession = await authGet(`/api/practical-sessions/${sessionId}/`);
+            setSession(updatedSession);
           }
-        } else if (statusRes && statusRes.error) {
-          setVmStatus('error');
-          setVmErrorDetails(statusRes.error);
         }
       } catch (e) {
         console.error('VM status check failed', e);
-        // Don't set error status on temporary network issues
-        if (vmStatus !== 'error' && e.message.includes('OBJECT_NOT_FOUND')) {
-          setVmStatus('error');
-          setVmErrorDetails('Virtual machine not found. Please contact support.');
-        }
       }
     }, 3000);
   };
@@ -246,6 +252,12 @@ export default function PracticalExam() {
       if (terminal.current) {
         terminal.current.writeln('\r\n✅ Connected to exam environment\r\n');
         terminal.current.writeln('\r\nYou can now begin your exam. Good luck!\r\n');
+        // Send a newline to trigger prompt
+        setTimeout(() => {
+          if (websocket.current && websocket.current.readyState === WebSocket.OPEN) {
+            websocket.current.send('\n');
+          }
+        }, 500);
       }
     };
 
@@ -263,7 +275,7 @@ export default function PracticalExam() {
       if (terminal.current) {
         terminal.current.writeln(`\r\n🔌 Connection closed: ${event.reason || 'Unknown reason'}\r\n`);
         
-        // Try to reconnect if the closure was unexpected
+        // Try to reconnect if the closure was unexpected and VM is still running
         if (vmStatus === 'running' && !event.reason.includes('normal')) {
           terminal.current.writeln('\r\nAttempting to reconnect in 3 seconds...\r\n');
           setTimeout(initWebSocket, 3000);
@@ -280,9 +292,15 @@ export default function PracticalExam() {
           reader.onload = () => {
             if (typeof reader.result === 'string') {
               terminal.current.write(reader.result);
+            } else if (reader.result instanceof ArrayBuffer) {
+              const data = new Uint8Array(reader.result);
+              terminal.current.write(data);
             }
           };
           reader.readAsText(event.data);
+        } else if (event.data instanceof ArrayBuffer) {
+          const data = new Uint8Array(event.data);
+          terminal.current.write(data);
         }
       }
     };
@@ -300,6 +318,10 @@ export default function PracticalExam() {
       }
       
       await authPost(`/api/practical-sessions/${sessionId}/restart_vm/`, {});
+      
+      // Refresh session data
+      const updatedSession = await authGet(`/api/practical-sessions/${sessionId}/`);
+      setSession(updatedSession);
       
       startVmStatusPolling();
     } catch (err) {
@@ -319,9 +341,7 @@ export default function PracticalExam() {
 
     try {
       cleanupResources();
-      await authPost(`/api/practical-sessions/${session.id}/terminate/`, {
-        reason: 'Exam submitted by student'
-      });
+      await authPost(`/api/practical-sessions/${session.id}/verify/`, {});
       navigate(`/student/results/${session.id}`);
     } catch (err) {
       setError('Failed to submit exam: ' + err.message);
@@ -331,22 +351,9 @@ export default function PracticalExam() {
     }
   };
 
-  // Report VM issue to instructor
-  const reportIssue = async () => {
-    try {
-      await authPost(`/api/practical-sessions/${sessionId}/report_issue/`, {
-        error: vmErrorDetails || 'VM failed to start',
-        timestamp: new Date().toISOString()
-      });
-      
-      if (terminal.current) {
-        terminal.current.writeln('\r\n✅ Issue reported to instructor. Please wait for assistance.\r\n');
-      }
-    } catch (err) {
-      if (terminal.current) {
-        terminal.current.writeln(`\r\n❌ Failed to report issue: ${err.message}\r\n`);
-      }
-    }
+  // Refresh the session
+  const refreshSession = () => {
+    setRetryCount(prev => prev + 1);
   };
 
   // Format time display
@@ -362,10 +369,6 @@ export default function PracticalExam() {
       websocket.current.close();
       websocket.current = null;
     }
-    if (terminal.current) {
-      terminal.current.dispose();
-      terminal.current = null;
-    }
     if (timerRef.current) clearInterval(timerRef.current);
     if (reconnectTimer.current) clearInterval(reconnectTimer.current);
     if (vmCheckInterval.current) clearInterval(vmCheckInterval.current);
@@ -375,15 +378,15 @@ export default function PracticalExam() {
   };
 
   if (loading) {
-    return <div className="p-4 text-center">Loading exam environment...</div>;
+    return <div className="practical-loading">Loading exam environment...</div>;
   }
 
   if (error) {
     return (
-      <div className="p-4 text-center text-red-500">
+      <div className="practical-error">
         {error}
         <button 
-          className="ml-4 px-4 py-2 bg-blue-500 text-white rounded"
+          className="practical-back-btn"
           onClick={() => navigate('/student')}
         >
           Go Back
@@ -409,9 +412,15 @@ export default function PracticalExam() {
               </span>
             </div>
           </div>
-          <div>
+          <div className="practical-header-actions">
             <button
-              className="practical-btn submit"
+              className="practical-btn practical-refresh-btn"
+              onClick={refreshSession}
+            >
+              Refresh
+            </button>
+            <button
+              className="practical-btn practical-submit-btn"
               onClick={submitExam}
             >
               Submit Exam
@@ -442,10 +451,7 @@ export default function PracticalExam() {
                   {vmErrorDetails || 'The virtual machine failed to start properly.'}
                 </div>
                 <div className="practical-error-actions">
-                  <button className="practical-btn report" onClick={reportIssue}>
-                    Report to Instructor
-                  </button>
-                  <button className="practical-btn restart" onClick={restartVm}>
+                  <button className="practical-btn practical-restart-btn" onClick={restartVm}>
                     Try Again
                   </button>
                 </div>
@@ -456,17 +462,17 @@ export default function PracticalExam() {
 
         <div className="practical-terminal-panel">
           <div className="practical-terminal-header">
-            <div className="font-medium">Terminal</div>
+            <div className="practical-terminal-title">Terminal</div>
             <div className="practical-terminal-actions">
               <button
-                className="practical-btn reconnect"
+                className="practical-btn practical-reconnect-btn"
                 onClick={initWebSocket}
                 disabled={vmStatus !== 'running'}
               >
                 Reconnect
               </button>
               <button
-                className="practical-btn restart"
+                className="practical-btn practical-restart-btn"
                 onClick={restartVm}
                 disabled={vmStatus === 'starting'}
               >
@@ -477,7 +483,7 @@ export default function PracticalExam() {
           <div className="practical-terminal-body">
             <div
               ref={terminalRef}
-              className="h-full-w-full"
+              className="practical-terminal"
             />
           </div>
           <div className="practical-terminal-status">

@@ -245,3 +245,28 @@
     padding: 10px 8px;
   }
 }
+
+
+.practical-header-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.practical-btn.practical-refresh-btn {
+  background-color: #6c757d;
+}
+
+.practical-btn.practical-refresh-btn:hover {
+  background-color: #5a6268;
+}
+
+.practical-terminal {
+  width: 100%;
+  height: 100%;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.xterm {
+  padding: 10px;
+}
