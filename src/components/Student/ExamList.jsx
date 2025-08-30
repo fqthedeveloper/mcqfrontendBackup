@@ -156,10 +156,10 @@ export function ExamList() {
                   <div className="detail-item">
                     <span className="detail-label">Duration:</span>
                     <span className="detail-value">
-                      {formatDuration(exam.duration)}
+                      {formatDuration(exam.duration_minutes)}
                     </span>
                   </div>
-                  <div className="detail-item">
+                  {/* <div className="detail-item">
                     <span className="detail-label">
                       {exam.mode === "practical" ? "Tasks:" : "Questions:"}
                     </span>
@@ -168,7 +168,7 @@ export function ExamList() {
                         ? exam.practical_count || "N/A"
                         : exam.question_count || "N/A"}
                     </span>
-                  </div>
+                  </div> */}
                   <div className="detail-item">
                     <span className="detail-label">Attempts:</span>
                     <span className="detail-value">

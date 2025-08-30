@@ -1,13 +1,12 @@
-// React component (PracticalExam.js) - fixed version
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import 'xterm/css/xterm.css';
+import Swal from 'sweetalert2';
 import { authGet, authPost, baseURL } from '../../services/api';
 import '../CSS/PracticalExam.css';
 
-// WebSocket connection management
 export default function PracticalExam() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
@@ -23,6 +22,12 @@ export default function PracticalExam() {
   const [isTerminalReady, setIsTerminalReady] = useState(false);
   const [vmErrorDetails, setVmErrorDetails] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPreloader, setShowPreloader] = useState(true);
+  const [preloaderTimeLeft, setPreloaderTimeLeft] = useState(120);
+  const [warningCount, setWarningCount] = useState(0);
+  const [isExamStarted, setIsExamStarted] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(true);
 
   // Refs
   const terminalRef = useRef(null);
@@ -34,6 +39,103 @@ export default function PracticalExam() {
   const vmCheckInterval = useRef(null);
   const isMounted = useRef(true);
   const resizeHandlerRef = useRef(null);
+  const preloaderInterval = useRef(null);
+
+  // Preloader countdown timer
+  useEffect(() => {
+    if (showPreloader) {
+      preloaderInterval.current = setInterval(() => {
+        setPreloaderTimeLeft(prev => {
+          if (prev <= 1) {
+            clearInterval(preloaderInterval.current);
+            setShowPreloader(false);
+            setIsExamStarted(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+
+    return () => {
+      if (preloaderInterval.current) {
+        clearInterval(preloaderInterval.current);
+      }
+    };
+  }, [showPreloader]);
+
+  // Tab visibility and focus detection
+  useEffect(() => {
+    if (!isExamStarted) return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // User switched tabs
+        handleTabChange();
+      }
+    };
+
+    const handleBlur = () => {
+      // User might be switching tabs or applications
+      handleTabChange();
+    };
+
+    const handleBeforeUnload = (e) => {
+      // Prevent page refresh/close
+      e.preventDefault();
+      e.returnValue = 'Are you sure you want to leave? Your exam may be terminated.';
+      return 'Are you sure you want to leave? Your exam may be terminated.';
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [isExamStarted, warningCount]);
+
+  const handleTabChange = () => {
+    const newWarningCount = warningCount + 1;
+    setWarningCount(newWarningCount);
+
+    if (newWarningCount >= 3) {
+      // Terminate exam after 3 warnings
+      Swal.fire({
+        title: 'Exam Terminated',
+        text: 'You have switched tabs too many times. Your exam has been terminated.',
+        icon: 'error',
+        confirmButtonText: 'OK'
+      }).then(() => {
+        terminateExam('Switched tabs multiple times during exam');
+      });
+    } else {
+      // Show warning
+      Swal.fire({
+        title: 'Warning',
+        text: `Please do not switch tabs during the exam. Warning ${newWarningCount} of 3.`,
+        icon: 'warning',
+        confirmButtonText: 'I Understand'
+      });
+    }
+  };
+
+  const terminateExam = async (reason) => {
+    try {
+      await authPost(`/api/practical-sessions/${sessionId}/terminate/`, { reason });
+      navigate('/student/dashboard');
+    } catch (err) {
+      console.error('Failed to terminate exam:', err);
+      Swal.fire({
+        title: 'Error',
+        text: 'Failed to terminate exam. Please contact your instructor.',
+        icon: 'error'
+      });
+    }
+  };
 
   // Load session data
   useEffect(() => {
@@ -48,7 +150,7 @@ export default function PracticalExam() {
         
         if (sessionData.status === 'failed' || sessionData.status === 'terminated') {
           setVmStatus('error');
-          setVmErrorDetails(sessionData.termination_reason || 'VM initialization failed');
+          setVmErrorDetails(sessionData.termination_reason || sessionData.startup_log || 'VM initialization failed');
         } else {
           startVmStatusPolling();
         }
@@ -68,9 +170,9 @@ export default function PracticalExam() {
     };
   }, [sessionId, retryCount]);
 
-  // Initialize terminal
+  // Initialize terminal - only after preloader is done
   useEffect(() => {
-    if (!session || !exam || !terminalRef.current) return;
+    if (showPreloader || !session || !exam || !terminalRef.current) return;
     
     if (terminal.current) {
       // Terminal already initialized, just clear and update
@@ -149,46 +251,42 @@ export default function PracticalExam() {
         window.removeEventListener('resize', resizeHandlerRef.current);
       }
     };
-  }, [session, exam, vmStatus, vmErrorDetails]);
+  }, [session, exam, vmStatus, vmErrorDetails, showPreloader]);
 
-  // Connect to terminal when VM is ready
+  // Connect to terminal when VM is ready - only after preloader is done
   useEffect(() => {
-    if (vmStatus === 'running' && isTerminalReady) {
-      // Small delay to ensure VM is fully ready
-      const timer = setTimeout(() => {
-        initWebSocket();
-      }, 2000);
-      return () => clearTimeout(timer);
-    } else if (vmStatus !== 'running' && websocket.current) {
-      websocket.current.close();
-      websocket.current = null;
-      setConnectionStatus('VM stopped');
-    }
-  }, [vmStatus, isTerminalReady]);
+    if (showPreloader || vmStatus !== 'running' || !isTerminalReady) return;
+    
+    // Small delay to ensure VM is fully ready
+    const timer = setTimeout(() => {
+      initWebSocket();
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [vmStatus, isTerminalReady, showPreloader]);
 
-  // Handle session timer
+  // Handle session timer - only after preloader is done
   useEffect(() => {
-    if (session && exam && session.status === 'running') {
-      const totalTime = exam.duration * 60;
-      const startTime = new Date(session.start_time).getTime();
-      const now = Date.now();
-      const elapsedSeconds = Math.floor((now - startTime) / 1000);
-      setRemainingTime(Math.max(0, totalTime - elapsedSeconds));
+    if (showPreloader || !session || !exam || session.status !== 'running') return;
+    
+    const totalTime = exam.duration_minutes * 60;
+    const startTime = new Date(session.start_time).getTime();
+    const now = Date.now();
+    const elapsedSeconds = Math.floor((now - startTime) / 1000);
+    setRemainingTime(Math.max(0, totalTime - elapsedSeconds));
 
-      timerRef.current = setInterval(() => {
-        setRemainingTime(prev => {
-          const newTime = prev - 1;
-          if (newTime <= 0) {
-            submitExam();
-            return 0;
-          }
-          return newTime;
-        });
-      }, 1000);
+    timerRef.current = setInterval(() => {
+      setRemainingTime(prev => {
+        const newTime = prev - 1;
+        if (newTime <= 0) {
+          submitExam();
+          return 0;
+        }
+        return newTime;
+      });
+    }, 1000);
 
-      return () => clearInterval(timerRef.current);
-    }
-  }, [session, exam]);
+    return () => clearInterval(timerRef.current);
+  }, [session, exam, showPreloader]);
 
   // Start VM status polling
   const startVmStatusPolling = () => {
@@ -250,7 +348,6 @@ export default function PracticalExam() {
       setConnectionStatus('Connected to terminal');
       
       if (terminal.current) {
-        terminal.current.writeln('\r\n✅ Connected to exam environment\r\n');
         terminal.current.writeln('\r\nYou can now begin your exam. Good luck!\r\n');
         // Send a newline to trigger prompt
         setTimeout(() => {
@@ -312,6 +409,8 @@ export default function PracticalExam() {
       setConnectionStatus('Restarting VM...');
       setVmStatus('starting');
       setVmErrorDetails(null);
+      setShowPreloader(true);
+      setPreloaderTimeLeft(30); // 30 seconds for VM restart
       
       if (terminal.current) {
         terminal.current.writeln('\r\n♻️ Restarting VM...\r\n');
@@ -328,6 +427,7 @@ export default function PracticalExam() {
       setConnectionStatus('Restart failed');
       setVmStatus('error');
       setVmErrorDetails(err.message || 'Failed to restart VM');
+      setShowPreloader(false);
       
       if (terminal.current) {
         terminal.current.writeln(`\r\n❌ Restart failed: ${err.message}\r\n`);
@@ -335,19 +435,60 @@ export default function PracticalExam() {
     }
   };
 
-  // Submit exam
+  // Submit exam with confirmation
   const submitExam = async () => {
-    if (!session) return;
-
+    if (!session || isSubmitting) return;
+    
+    // Show confirmation dialog
+    const result = await Swal.fire({
+      title: 'Submit Exam?',
+      html: `
+        <p>Are you sure you want to submit your exam?</p>
+        <p><strong>This action cannot be undone.</strong></p>
+        <div style="text-align: left; margin-top: 15px;">
+          <p>By submitting, you declare that:</p>
+          <ul>
+            <li>This is your own work</li>
+            <li>You haven't received unauthorized help</li>
+            <li>You followed all exam rules</li>
+          </ul>
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, Submit Exam',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      reverseButtons: true
+    });
+    
+    if (!result.isConfirmed) return;
+    
+    setIsSubmitting(true);
     try {
       cleanupResources();
-      await authPost(`/api/practical-sessions/${session.id}/verify/`, {});
-      navigate(`/student/results/${session.id}`);
+      
+      const response = await authPost(`/api/practical-sessions/${session.id}/verify/`, {});
+      
+      navigate(`/student/practical-results/${response.result_id}`, {
+        state: {
+          success: response.success,
+          output: response.output
+        }
+      });
     } catch (err) {
-      setError('Failed to submit exam: ' + err.message);
+      if (err.response?.status === 404) {
+        setError('Session not found. Please contact your instructor.');
+      } else {
+        setError('Failed to submit exam: ' + err.message);
+      }
+      
       if (terminal.current) {
         terminal.current.writeln(`\r\n❌ Submission error: ${err.message}\r\n`);
       }
+      
+      setIsSubmitting(false);
     }
   };
 
@@ -363,6 +504,13 @@ export default function PracticalExam() {
     return `${m}:${s}`;
   };
 
+  // Format preloader time
+  const formatPreloaderTime = (sec) => {
+    const m = Math.floor(sec / 60).toString().padStart(2, '0');
+    const s = (sec % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
   // Cleanup resources
   const cleanupResources = () => {
     if (websocket.current) {
@@ -372,9 +520,46 @@ export default function PracticalExam() {
     if (timerRef.current) clearInterval(timerRef.current);
     if (reconnectTimer.current) clearInterval(reconnectTimer.current);
     if (vmCheckInterval.current) clearInterval(vmCheckInterval.current);
+    if (preloaderInterval.current) clearInterval(preloaderInterval.current);
     if (resizeHandlerRef.current) {
       window.removeEventListener('resize', resizeHandlerRef.current);
     }
+  };
+
+  // Toggle instructions panel
+  const toggleInstructions = () => {
+    setShowInstructions(!showInstructions);
+  };
+
+  // Preloader component
+  const Preloader = () => {
+    return (
+      <div className="practical-preloader">
+        <div className="practical-preloader-content">
+          <div className="practical-preloader-spinner">
+            <div className="practical-preloader-dot"></div>
+            <div className="practical-preloader-dot"></div>
+            <div className="practical-preloader-dot"></div>
+            <div className="practical-preloader-dot"></div>
+            <div className="practical-preloader-dot"></div>
+          </div>
+          <h2>Preparing Your Exam Environment</h2>
+          <p>Please wait while we set up your virtual machine. This may take a few minutes.</p>
+          <div className="practical-preloader-time">
+            Time remaining: {formatPreloaderTime(preloaderTimeLeft)}
+          </div>
+          <div className="practical-preloader-tips">
+            <h3>Tips for a successful exam:</h3>
+            <ul>
+              <li>Ensure you have a stable internet connection</li>
+              <li>Do not refresh the page during the exam</li>
+              <li>Read all instructions carefully before starting</li>
+              <li>Manage your time wisely</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   if (loading) {
@@ -395,24 +580,31 @@ export default function PracticalExam() {
     );
   }
 
+  if (showPreloader) {
+    return <Preloader />;
+  }
+
   return (
     <div className="practical-container">
+      {/* Header with exam info and controls */}
       <div className="practical-header">
-        <div className="practical-header-row">
-          <div>
-            <div className="practical-title">{exam?.title} - Practical Exam</div>
-            <div className="practical-status">
-              <span>Time Left: {formatTime(remainingTime)}</span>
-              <span>
-                • VM:
-                <span className={`practical-container-status ${vmStatus}`}>
-                  {vmStatus}
-                  {vmStatus === 'error' && ' - Click for details'}
-                </span>
+        <div className="practical-header-content">
+          <div className="practical-header-info">
+            <h2>{exam?.title} - Practical Exam</h2>
+            <div className="practical-header-status">
+              <span className="practical-time">Time Left: {formatTime(remainingTime)}</span>
+              <span className="practical-vm-status">
+                VM Status: <span className={`status-${vmStatus}`}>{vmStatus}</span>
               </span>
             </div>
           </div>
           <div className="practical-header-actions">
+            <button
+              className="practical-btn practical-toggle-instructions"
+              onClick={toggleInstructions}
+            >
+              {showInstructions ? 'Hide Instructions' : 'Show Instructions'}
+            </button>
             <button
               className="practical-btn practical-refresh-btn"
               onClick={refreshSession}
@@ -420,49 +612,51 @@ export default function PracticalExam() {
               Refresh
             </button>
             <button
+              className="practical-btn practical-restart-btn"
+              onClick={restartVm}
+              disabled={vmStatus === 'starting'}
+            >
+              {vmStatus === 'starting' ? 'Restarting...' : 'Restart VM'}
+            </button>
+            <button
               className="practical-btn practical-submit-btn"
               onClick={submitExam}
+              disabled={!session || session.status !== 'running' || isSubmitting}
             >
-              Submit Exam
+              {isSubmitting ? 'Submitting...' : 'Submit Exam'}
             </button>
           </div>
         </div>
       </div>
 
+      {/* Main exam interface */}
       <div className="practical-main">
-        <div className="practical-instructions">
-          <div>
-            <div className="practical-instructions-title">Exam Instructions</div>
-            {exam && (
-              <>
-                <div className="practical-instructions-desc">{exam.description}</div>
-                {exam.verification_command && (
-                  <div className="practical-verification">
-                    <div className="practical-verification-title">Verification Command:</div>
-                    <code className="practical-verification-command">{exam.verification_command}</code>
-                  </div>
-                )}
-              </>
-            )}
-            {vmStatus === 'error' && (
-              <div className="practical-error-panel">
-                <div className="practical-error-title">VM Error</div>
-                <div className="practical-error-desc">
-                  {vmErrorDetails || 'The virtual machine failed to start properly.'}
-                </div>
-                <div className="practical-error-actions">
-                  <button className="practical-btn practical-restart-btn" onClick={restartVm}>
-                    Try Again
-                  </button>
-                </div>
+        {showInstructions && (
+          <div className="practical-instructions">
+            <div className="practical-instructions-content">
+              <h3>Exam Instructions</h3>
+              <div className="practical-instructions-text">
+                {exam?.description}
               </div>
-            )}
+              {exam?.verification_command && (
+                <div className="practical-verification">
+                  <h4>Verification Command:</h4>
+                  <code>{exam.verification_command}</code>
+                </div>
+              )}
+              {vmStatus === 'error' && (
+                <div className="practical-error-panel">
+                  <h4>VM Error</h4>
+                  <p>{vmErrorDetails || 'The virtual machine failed to start properly.'}</p>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
-        <div className="practical-terminal-panel">
+        <div className="practical-terminal-container">
           <div className="practical-terminal-header">
-            <div className="practical-terminal-title">Terminal</div>
+            <span>Terminal</span>
             <div className="practical-terminal-actions">
               <button
                 className="practical-btn practical-reconnect-btn"
@@ -470,13 +664,6 @@ export default function PracticalExam() {
                 disabled={vmStatus !== 'running'}
               >
                 Reconnect
-              </button>
-              <button
-                className="practical-btn practical-restart-btn"
-                onClick={restartVm}
-                disabled={vmStatus === 'starting'}
-              >
-                {vmStatus === 'starting' ? 'Restarting...' : 'Restart VM'}
               </button>
             </div>
           </div>

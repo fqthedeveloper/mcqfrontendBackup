@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { authGet, authDelete, authPut } from '../../services/api';
 import Swal from 'sweetalert2';
-import { FaEdit, FaTrash, FaPlus, FaDocker, FaClock, FaBook } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaPlus, FaClock, FaBook, FaDesktop, FaUser, FaKey } from 'react-icons/fa';
 import '../CSS/ExamForm.css';
 
 const PracticalTaskList = () => {
@@ -92,7 +92,7 @@ const PracticalTaskList = () => {
             <tr>
               <th>Title</th>
               <th>Subject</th>
-              <th>Environment</th>
+              <th>VM Configuration</th>
               <th>Duration</th>
               <th>Status</th>
               <th>Actions</th>
@@ -105,22 +105,33 @@ const PracticalTaskList = () => {
                 <td>
                   <div className="subject-cell">
                     <FaBook className="icon" />
-                    <span>{exam.subject?.name}</span>
+                    <span>{exam.subject_name}</span>
                   </div>
                 </td>
-                <td className="environment-cell">
-                  <div className="env-info">
-                    <FaDocker className="docker-icon" />
-                    <div>
-                      <div>{exam.docker_image}</div>
-                      <small>Setup: {exam.setup_command ? exam.setup_command.substring(0, 30) + '...' : 'N/A'}</small>
+                <td className="vm-config-cell">
+                  <div className="vm-info">
+                    <div className="vm-item">
+                      <FaDesktop className="vm-icon" />
+                      <span>Base VM: {exam.base_vm_name}</span>
+                    </div>
+                    <div className="vm-item">
+                      <FaDesktop className="vm-icon" />
+                      <span>Snapshot: {exam.snapshot_name}</span>
+                    </div>
+                    <div className="vm-item">
+                      <FaUser className="vm-icon" />
+                      <span>User: {exam.vm_username}</span>
+                    </div>
+                    <div className="vm-item">
+                      <FaKey className="vm-icon" />
+                      <span>Pass: {exam.vm_password}</span>
                     </div>
                   </div>
                 </td>
                 <td>
                   <div className="duration-cell">
                     <FaClock className="icon" />
-                    <span>{exam.duration} mins</span>
+                    <span>{exam.duration_minutes} mins</span>
                   </div>
                 </td>
                 <td>
@@ -185,5 +196,6 @@ const PracticalTaskList = () => {
     </div>
   );
 };
+
 
 export default PracticalTaskList;
