@@ -1,68 +1,65 @@
-/* PracticalExam.css */
+/* Practical Exam Styles */
 .practical-container {
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #f5f5f5;
+  height: 100vh;
+  background-color: #1e1e1e;
+  color: #d4d4d4;
 }
 
 .practical-header {
-  background: #2c3e50;
-  color: white;
-  padding: 15px 20px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  background-color: #2d2d30;
+  border-bottom: 1px solid #3e3e42;
+  padding: 10px 20px;
 }
 
 .practical-header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 15px;
 }
 
 .practical-header-info h2 {
-  margin: 0 0 8px 0;
-  font-size: 1.5rem;
+  margin: 0;
+  font-size: 18px;
+  color: #ffffff;
 }
 
 .practical-header-status {
   display: flex;
-  gap: 20px;
-  font-size: 0.9rem;
+  gap: 15px;
+  margin-top: 5px;
+  font-size: 14px;
 }
 
 .practical-time {
+  color: #ce9178;
   font-weight: bold;
 }
 
 .practical-vm-status .status-running {
-  color: #4caf50;
-  font-weight: bold;
+  color: #6a9955;
 }
 
 .practical-vm-status .status-starting {
-  color: #ff9800;
-  font-weight: bold;
+  color: #d7ba7d;
 }
 
 .practical-vm-status .status-error {
-  color: #f44336;
-  font-weight: bold;
+  color: #f44747;
 }
 
 .practical-header-actions {
   display: flex;
   gap: 10px;
-  flex-wrap: wrap;
 }
 
 .practical-btn {
-  padding: 8px 16px;
+  padding: 8px 12px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-weight: 500;
+  font-size: 14px;
   transition: background-color 0.2s;
 }
 
@@ -72,50 +69,28 @@
 }
 
 .practical-toggle-instructions {
-  background-color: #6c757d;
+  background-color: #0e639c;
   color: white;
-}
-
-.practical-toggle-instructions:hover:not(:disabled) {
-  background-color: #5a6268;
 }
 
 .practical-refresh-btn {
-  background-color: #17a2b8;
-  color: white;
-}
-
-.practical-refresh-btn:hover:not(:disabled) {
-  background-color: #138496;
+  background-color: #4ec9b0;
+  color: #1e1e1e;
 }
 
 .practical-restart-btn {
-  background-color: #ffc107;
-  color: #212529;
-}
-
-.practical-restart-btn:hover:not(:disabled) {
-  background-color: #e0a800;
+  background-color: #d7ba7d;
+  color: #1e1e1e;
 }
 
 .practical-submit-btn {
-  background-color: #28a745;
+  background-color: #f44747;
   color: white;
-}
-
-.practical-submit-btn:hover:not(:disabled) {
-  background-color: #218838;
 }
 
 .practical-reconnect-btn {
-  background-color: #17a2b8;
-  color: white;
-  font-size: 0.9rem;
-  padding: 5px 10px;
-}
-
-.practical-reconnect-btn:hover:not(:disabled) {
-  background-color: #138496;
+  background-color: #4ec9b0;
+  color: #1e1e1e;
 }
 
 .practical-main {
@@ -126,82 +101,75 @@
 
 .practical-instructions {
   width: 300px;
-  background: white;
-  border-right: 1px solid #ddd;
+  background-color: #252526;
+  border-right: 1px solid #3e3e42;
+  padding: 15px;
   overflow-y: auto;
-  padding: 20px;
-  transition: width 0.3s ease;
 }
 
 .practical-instructions-content h3 {
   margin-top: 0;
-  color: #2c3e50;
-  border-bottom: 2px solid #3498db;
+  color: #ffffff;
+  border-bottom: 1px solid #3e3e42;
   padding-bottom: 10px;
 }
 
 .practical-instructions-text {
-  margin-bottom: 20px;
   line-height: 1.5;
+  margin-bottom: 20px;
 }
 
 .practical-verification {
-  background: #f8f9fa;
-  border-left: 4px solid #3498db;
-  padding: 15px;
+  background-color: #2d2d30;
+  padding: 10px;
   border-radius: 4px;
-  margin-top: 20px;
+  margin-top: 15px;
 }
 
 .practical-verification h4 {
   margin-top: 0;
-  color: #2c3e50;
+  color: #4ec9b0;
 }
 
 .practical-verification code {
+  background-color: #1e1e1e;
+  padding: 5px;
+  border-radius: 3px;
+  font-family: 'Consolas', monospace;
   display: block;
-  background: #2c3e50;
-  color: #ecf0f1;
-  padding: 10px;
-  border-radius: 4px;
-  font-family: monospace;
   overflow-x: auto;
 }
 
 .practical-error-panel {
-  background: #ffeaea;
-  border-left: 4px solid #e74c3c;
-  padding: 15px;
+  background-color: #5a1d1d;
+  padding: 10px;
   border-radius: 4px;
-  margin-top: 20px;
+  margin-top: 15px;
 }
 
 .practical-error-panel h4 {
   margin-top: 0;
-  color: #c0392b;
+  color: #f44747;
 }
 
 .practical-terminal-container {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  background: #1e1e1e;
+  flex: 1;
 }
 
 .practical-terminal-header {
-  background: #252526;
-  color: #ccc;
-  padding: 10px 15px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #3c3c3c;
+  padding: 10px 15px;
+  background-color: #2d2d30;
+  border-bottom: 1px solid #3e3e42;
 }
 
 .practical-terminal-body {
   flex: 1;
   padding: 10px;
-  overflow: hidden;
 }
 
 .practical-terminal {
@@ -210,193 +178,147 @@
 }
 
 .practical-terminal-status {
-  background: #252526;
-  color: #ccc;
-  padding: 8px 15px;
-  font-size: 0.9rem;
-  border-top: 1px solid #3c3c3c;
+  padding: 5px 15px;
+  background-color: #2d2d30;
+  border-top: 1px solid #3e3e42;
+  font-size: 12px;
+  color: #858585;
 }
 
-/* Preloader styles */
+/* Preloader Styles */
 .practical-preloader {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+  right: 0;
+  bottom: 0;
+  background-color: #1e1e1e;
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 9999;
-  color: white;
+  z-index: 1000;
 }
 
 .practical-preloader-content {
   text-align: center;
-  max-width: 600px;
-  padding: 30px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  max-width: 500px;
+  padding: 20px;
 }
 
 .practical-preloader-spinner {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 30px;
+  display: inline-block;
+  position: relative;
+  width: 80px;
+  height: 80px;
+  margin-bottom: 20px;
 }
 
 .practical-preloader-dot {
-  width: 20px;
-  height: 20px;
-  margin: 0 5px;
-  background-color: #fff;
+  position: absolute;
+  top: 33px;
+  width: 13px;
+  height: 13px;
   border-radius: 50%;
-  animation: practical-preloader-bounce 1.4s infinite ease-in-out both;
+  background: #4ec9b0;
+  animation-timing-function: cubic-bezier(0, 1, 1, 0);
 }
 
 .practical-preloader-dot:nth-child(1) {
-  animation-delay: -0.32s;
+  left: 8px;
+  animation: practical-preloader-dot1 0.6s infinite;
 }
 
 .practical-preloader-dot:nth-child(2) {
-  animation-delay: -0.16s;
+  left: 8px;
+  animation: practical-preloader-dot2 0.6s infinite;
 }
 
 .practical-preloader-dot:nth-child(3) {
-  animation-delay: 0s;
+  left: 32px;
+  animation: practical-preloader-dot2 0.6s infinite;
 }
 
 .practical-preloader-dot:nth-child(4) {
-  animation-delay: 0.16s;
+  left: 56px;
+  animation: practical-preloader-dot3 0.6s infinite;
 }
 
-.practical-preloader-dot:nth-child(5) {
-  animation-delay: 0.32s;
+@keyframes practical-preloader-dot1 {
+  0% { transform: scale(0); }
+  100% { transform: scale(1); }
 }
 
-@keyframes practical-preloader-bounce {
-  0%, 80%, 100% {
-    transform: scale(0);
-  }
-  40% {
-    transform: scale(1);
-  }
+@keyframes practical-preloader-dot3 {
+  0% { transform: scale(1); }
+  100% { transform: scale(0); }
 }
 
-.practical-preloader h2 {
-  font-size: 28px;
-  margin-bottom: 15px;
-  color: #fff;
+@keyframes practical-preloader-dot2 {
+  0% { transform: translate(0, 0); }
+  100% { transform: translate(24px, 0); }
 }
 
-.practical-preloader p {
-  font-size: 18px;
-  margin-bottom: 25px;
-  opacity: 0.9;
+.practical-preloader-content h2 {
+  color: #ffffff;
+  margin-bottom: 10px;
+}
+
+.practical-preloader-content p {
+  color: #cccccc;
+  margin-bottom: 20px;
 }
 
 .practical-preloader-time {
-  font-size: 24px;
+  font-size: 18px;
+  color: #ce9178;
   font-weight: bold;
-  margin-bottom: 30px;
-  background: rgba(255, 255, 255, 0.2);
-  padding: 10px 20px;
-  border-radius: 50px;
-  display: inline-block;
+  margin-bottom: 20px;
 }
 
 .practical-preloader-tips {
   text-align: left;
-  background: rgba(255, 255, 255, 0.1);
-  padding: 20px;
-  border-radius: 8px;
-  margin-top: 20px;
+  background-color: #252526;
+  padding: 15px;
+  border-radius: 4px;
 }
 
 .practical-preloader-tips h3 {
-  margin-bottom: 15px;
-  font-size: 20px;
+  color: #4ec9b0;
+  margin-top: 0;
 }
 
 .practical-preloader-tips ul {
-  list-style-type: none;
-  padding: 0;
+  color: #cccccc;
+  padding-left: 20px;
 }
 
 .practical-preloader-tips li {
-  margin-bottom: 10px;
-  padding-left: 25px;
-  position: relative;
+  margin-bottom: 5px;
 }
 
-.practical-preloader-tips li:before {
-  content: "✓";
-  position: absolute;
-  left: 0;
-  color: #2ecc71;
-  font-weight: bold;
-}
-
-/* Loading and error states */
-.practical-loading {
+/* Loading and Error States */
+.practical-loading, .practical-error {
   display: flex;
   justify-content: center;
   align-items: center;
   height: 100vh;
-  font-size: 18px;
-  color: #7f8c8d;
+  flex-direction: column;
+  background-color: #1e1e1e;
+  color: #d4d4d4;
 }
 
 .practical-error {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-  gap: 20px;
-  color: #e74c3c;
-  text-align: center;
-  padding: 20px;
+  color: #f44747;
 }
 
 .practical-back-btn {
+  margin-top: 20px;
   padding: 10px 20px;
-  background-color: #3498db;
+  background-color: #0e639c;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-weight: bold;
-}
-
-.practical-back-btn:hover {
-  background-color: #2980b9;
-}
-
-/* Responsive design */
-@media (max-width: 768px) {
-  .practical-header-content {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
-  .practical-header-actions {
-    width: 100%;
-    justify-content: center;
-  }
-  
-  .practical-main {
-    flex-direction: column;
-  }
-  
-  .practical-instructions {
-    width: 100%;
-    border-right: none;
-    border-bottom: 1px solid #ddd;
-  }
 }
 
 /* XTerm.js customizations */

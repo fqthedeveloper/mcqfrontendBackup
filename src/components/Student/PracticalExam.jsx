@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
@@ -6,6 +6,14 @@ import 'xterm/css/xterm.css';
 import Swal from 'sweetalert2';
 import { authGet, authPost, baseURL } from '../../services/api';
 import '../CSS/PracticalExam.css';
+
+// Add WebSocket reconnection constants
+const MAX_RECONNECT_ATTEMPTS = 5;
+const RECONNECT_INTERVAL = 3000;
+const VM_CHECK_INTERVAL = 8000;
+const PRELOADER_MAX_TIME = 120;
+const VERIFICATION_POLL_INTERVAL = 3000;
+const WEBSOCKET_CONNECT_DELAY = 2000; // Delay before attempting WebSocket connection
 
 export default function PracticalExam() {
   const { sessionId } = useParams();
@@ -24,10 +32,12 @@ export default function PracticalExam() {
   const [retryCount, setRetryCount] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPreloader, setShowPreloader] = useState(true);
-  const [preloaderTimeLeft, setPreloaderTimeLeft] = useState(120);
+  const [preloaderTimeLeft, setPreloaderTimeLeft] = useState(PRELOADER_MAX_TIME);
   const [warningCount, setWarningCount] = useState(0);
   const [isExamStarted, setIsExamStarted] = useState(false);
   const [showInstructions, setShowInstructions] = useState(true);
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const [isWebSocketConnected, setIsWebSocketConnected] = useState(false);
 
   // Refs
   const terminalRef = useRef(null);
@@ -40,21 +50,42 @@ export default function PracticalExam() {
   const isMounted = useRef(true);
   const resizeHandlerRef = useRef(null);
   const preloaderInterval = useRef(null);
+  const sessionEndTime = useRef(null);
+  const vmStatusCheckCounter = useRef(0);
+  const verificationPollInterval = useRef(null);
+  const sshReadyCheckInterval = useRef(null);
 
-  // Preloader countdown timer
+  // Check if SSH is ready before connecting WebSocket
+  const checkSshReady = useCallback(async () => {
+    if (!session || !session.ssh_port) return false;
+    
+    try {
+      // Simple TCP connection check to see if SSH port is open
+      const response = await authGet(`/api/practical-sessions/${sessionId}/check_ssh/`);
+      return response.ready || false;
+    } catch (e) {
+      console.error('SSH readiness check failed:', e);
+      return false;
+    }
+  }, [session, sessionId]);
+
+  // Preloader timer effect
   useEffect(() => {
     if (showPreloader) {
       preloaderInterval.current = setInterval(() => {
         setPreloaderTimeLeft(prev => {
           if (prev <= 1) {
             clearInterval(preloaderInterval.current);
-            setShowPreloader(false);
-            setIsExamStarted(true);
+            checkVmSmoothness();
             return 0;
           }
           return prev - 1;
         });
       }, 1000);
+    } else {
+      if (preloaderInterval.current) {
+        clearInterval(preloaderInterval.current);
+      }
     }
 
     return () => {
@@ -64,78 +95,57 @@ export default function PracticalExam() {
     };
   }, [showPreloader]);
 
-  // Tab visibility and focus detection
-  useEffect(() => {
-    if (!isExamStarted) return;
-
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        // User switched tabs
-        handleTabChange();
-      }
-    };
-
-    const handleBlur = () => {
-      // User might be switching tabs or applications
-      handleTabChange();
-    };
-
-    const handleBeforeUnload = (e) => {
-      // Prevent page refresh/close
-      e.preventDefault();
-      e.returnValue = 'Are you sure you want to leave? Your exam may be terminated.';
-      return 'Are you sure you want to leave? Your exam may be terminated.';
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('blur', handleBlur);
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('blur', handleBlur);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [isExamStarted, warningCount]);
-
-  const handleTabChange = () => {
-    const newWarningCount = warningCount + 1;
-    setWarningCount(newWarningCount);
-
-    if (newWarningCount >= 3) {
-      // Terminate exam after 3 warnings
-      Swal.fire({
-        title: 'Exam Terminated',
-        text: 'You have switched tabs too many times. Your exam has been terminated.',
-        icon: 'error',
-        confirmButtonText: 'OK'
-      }).then(() => {
-        terminateExam('Switched tabs multiple times during exam');
-      });
-    } else {
-      // Show warning
-      Swal.fire({
-        title: 'Warning',
-        text: `Please do not switch tabs during the exam. Warning ${newWarningCount} of 3.`,
-        icon: 'warning',
-        confirmButtonText: 'I Understand'
-      });
-    }
-  };
-
-  const terminateExam = async (reason) => {
+  // Check verification status
+  const checkVerificationStatus = useCallback(async () => {
+    if (!session) return;
+    
     try {
-      await authPost(`/api/practical-sessions/${sessionId}/terminate/`, { reason });
-      navigate('/student/dashboard');
+      const response = await authGet(`/api/practical-sessions/${session.id}/verification_status/`);
+      
+      if (response.completed) {
+        if (verificationPollInterval.current) {
+          clearInterval(verificationPollInterval.current);
+          verificationPollInterval.current = null;
+        }
+        
+        navigate(`/student/practical-results/${session.id}`, {
+          state: {
+            sessionId: session.id,
+            examId: session.exam,
+            score: response.score,
+            isSuccess: response.is_success,
+            details: response.details
+          }
+        });
+      }
     } catch (err) {
-      console.error('Failed to terminate exam:', err);
-      Swal.fire({
-        title: 'Error',
-        text: 'Failed to terminate exam. Please contact your instructor.',
-        icon: 'error'
-      });
+      console.error('Error checking verification status:', err);
     }
-  };
+  }, [session, navigate]);
+
+  // Check if VM is running smoothly
+  const checkVmSmoothness = useCallback(() => {
+    if (vmStatus === 'running' && isWebSocketConnected) {
+      setShowPreloader(false);
+    } else if (vmStatus === 'running') {
+      // Start SSH readiness check before attempting WebSocket connection
+      const checkSshAndConnect = async () => {
+        const isSshReady = await checkSshReady();
+        if (isSshReady) {
+          initWebSocket();
+        } else {
+          // If SSH isn't ready, check again in a few seconds
+          setTimeout(checkSshAndConnect, 3000);
+        }
+      };
+      
+      checkSshAndConnect();
+    } else if (preloaderTimeLeft <= 0) {
+      setVmStatus('error');
+      setVmErrorDetails('VM failed to start within expected time');
+      setShowPreloader(false);
+    }
+  }, [vmStatus, preloaderTimeLeft, isWebSocketConnected, checkSshReady]);
 
   // Load session data
   useEffect(() => {
@@ -145,12 +155,40 @@ export default function PracticalExam() {
       try {
         const sessionData = await authGet(`/api/practical-sessions/${sessionId}/`);
         setSession(sessionData);
-        const examData = await authGet(`/api/practical-exams/${sessionData.exam}/`);
-        setExam(examData);
+        
+        if (sessionData.start_time && sessionData.exam) {
+          const examData = await authGet(`/api/practical-exams/${sessionData.exam}/`);
+          setExam(examData);
+          
+          const startTime = new Date(sessionData.start_time);
+          const endTime = new Date(startTime.getTime() + examData.duration_minutes * 60000);
+          sessionEndTime.current = endTime;
+          
+          const now = new Date();
+          const timeLeft = Math.max(0, endTime - now);
+          setRemainingTime(Math.floor(timeLeft / 1000));
+        }
         
         if (sessionData.status === 'failed' || sessionData.status === 'terminated') {
           setVmStatus('error');
           setVmErrorDetails(sessionData.termination_reason || sessionData.startup_log || 'VM initialization failed');
+          setShowPreloader(false);
+        } else if (sessionData.status === 'running') {
+          setVmStatus('running');
+          setIsExamStarted(true);
+          
+          // Check if SSH is ready before attempting connection
+          const checkSshBeforeConnect = async () => {
+            const isSshReady = await checkSshReady();
+            if (isSshReady) {
+              checkVmSmoothness();
+            } else {
+              // If SSH isn't ready, check again
+              setTimeout(checkSshBeforeConnect, 3000);
+            }
+          };
+          
+          checkSshBeforeConnect();
         } else {
           startVmStatusPolling();
         }
@@ -168,14 +206,13 @@ export default function PracticalExam() {
       isMounted.current = false;
       cleanupResources();
     };
-  }, [sessionId, retryCount]);
+  }, [sessionId, retryCount, checkVmSmoothness, checkSshReady]);
 
-  // Initialize terminal - only after preloader is done
+  // Initialize terminal
   useEffect(() => {
-    if (showPreloader || !session || !exam || !terminalRef.current) return;
+    if (!session || !exam || !terminalRef.current) return;
     
     if (terminal.current) {
-      // Terminal already initialized, just clear and update
       terminal.current.clear();
       if (vmStatus === 'error') {
         terminal.current.writeln('\r\n❌ VM Error: ' + (vmErrorDetails || 'Failed to start VM') + '\r\n');
@@ -236,9 +273,8 @@ export default function PracticalExam() {
 
       terminal.current.onData(data => {
         if (websocket.current && websocket.current.readyState === WebSocket.OPEN) {
-          websocket.current.send(data);
+          websocket.current.send(JSON.stringify({ type: 'input', data }));
         } else if (terminal.current) {
-          // Echo input if not connected
           terminal.current.write(data);
         }
       });
@@ -251,80 +287,20 @@ export default function PracticalExam() {
         window.removeEventListener('resize', resizeHandlerRef.current);
       }
     };
-  }, [session, exam, vmStatus, vmErrorDetails, showPreloader]);
+  }, [session, exam, vmStatus, vmErrorDetails]);
 
-  // Connect to terminal when VM is ready - only after preloader is done
-  useEffect(() => {
-    if (showPreloader || vmStatus !== 'running' || !isTerminalReady) return;
-    
-    // Small delay to ensure VM is fully ready
-    const timer = setTimeout(() => {
-      initWebSocket();
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, [vmStatus, isTerminalReady, showPreloader]);
-
-  // Handle session timer - only after preloader is done
-  useEffect(() => {
-    if (showPreloader || !session || !exam || session.status !== 'running') return;
-    
-    const totalTime = exam.duration_minutes * 60;
-    const startTime = new Date(session.start_time).getTime();
-    const now = Date.now();
-    const elapsedSeconds = Math.floor((now - startTime) / 1000);
-    setRemainingTime(Math.max(0, totalTime - elapsedSeconds));
-
-    timerRef.current = setInterval(() => {
-      setRemainingTime(prev => {
-        const newTime = prev - 1;
-        if (newTime <= 0) {
-          submitExam();
-          return 0;
-        }
-        return newTime;
-      });
-    }, 1000);
-
-    return () => clearInterval(timerRef.current);
-  }, [session, exam, showPreloader]);
-
-  // Start VM status polling
-  const startVmStatusPolling = () => {
-    if (vmCheckInterval.current) {
-      clearInterval(vmCheckInterval.current);
-    }
-    
-    vmCheckInterval.current = setInterval(async () => {
-      if (!isMounted.current) return;
-      
-      try {
-        const statusRes = await authGet(
-          `/api/practical-sessions/${sessionId}/vm_status/`
-        );
-        
-        if (statusRes && statusRes.status) {
-          setVmStatus(statusRes.status);
-          
-          // If VM is running but session status is still starting, update session
-          if (statusRes.status === 'running' && session && session.status === 'starting') {
-            const updatedSession = await authGet(`/api/practical-sessions/${sessionId}/`);
-            setSession(updatedSession);
-          }
-        }
-      } catch (e) {
-        console.error('VM status check failed', e);
-      }
-    }, 3000);
-  };
-
-  // Initialize WebSocket connection
-  const initWebSocket = () => {
+  // Initialize WebSocket connection with reconnection logic
+  const initWebSocket = useCallback(() => {
     if (!session || !session.token) {
       console.error('Session token not available');
       return;
     }
     
     if (websocket.current) {
+      // Don't close existing connection if it's still open
+      if (websocket.current.readyState === WebSocket.OPEN) {
+        return;
+      }
       websocket.current.close();
       websocket.current = null;
     }
@@ -346,20 +322,24 @@ export default function PracticalExam() {
 
     websocket.current.onopen = () => {
       setConnectionStatus('Connected to terminal');
+      setReconnectAttempts(0);
+      setIsWebSocketConnected(true);
       
       if (terminal.current) {
         terminal.current.writeln('\r\nYou can now begin your exam. Good luck!\r\n');
-        // Send a newline to trigger prompt
         setTimeout(() => {
           if (websocket.current && websocket.current.readyState === WebSocket.OPEN) {
-            websocket.current.send('\n');
+            websocket.current.send(JSON.stringify({ type: 'input', data: '\n' }));
           }
         }, 500);
       }
+      
+      checkVmSmoothness();
     };
 
     websocket.current.onerror = (error) => {
       setConnectionStatus(`Terminal error: ${error.message || 'Unknown error'}`);
+      setIsWebSocketConnected(false);
       
       if (terminal.current) {
         terminal.current.writeln(`\r\n❌ Connection error: ${error.message || 'Unknown error'}\r\n`);
@@ -368,40 +348,93 @@ export default function PracticalExam() {
 
     websocket.current.onclose = (event) => {
       setConnectionStatus(`Terminal disconnected: ${event.reason || 'Unknown reason'}`);
+      setIsWebSocketConnected(false);
       
       if (terminal.current) {
         terminal.current.writeln(`\r\n🔌 Connection closed: ${event.reason || 'Unknown reason'}\r\n`);
         
-        // Try to reconnect if the closure was unexpected and VM is still running
-        if (vmStatus === 'running' && !event.reason.includes('normal')) {
-          terminal.current.writeln('\r\nAttempting to reconnect in 3 seconds...\r\n');
-          setTimeout(initWebSocket, 3000);
+        if (vmStatus === 'running' && !event.reason.includes('normal') && 
+            reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+          const attemptsLeft = MAX_RECONNECT_ATTEMPTS - reconnectAttempts;
+          terminal.current.writeln(`\r\nAttempting to reconnect... (${attemptsLeft} attempts left)\r\n`);
+          
+          setReconnectAttempts(prev => prev + 1);
+          reconnectTimer.current = setTimeout(initWebSocket, RECONNECT_INTERVAL);
         }
       }
     };
 
     websocket.current.onmessage = (event) => {
       if (terminal.current) {
-        if (typeof event.data === 'string') {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'output') {
+            terminal.current.write(data.data);
+          }
+        } catch (e) {
           terminal.current.write(event.data);
-        } else if (event.data instanceof Blob) {
-          const reader = new FileReader();
-          reader.onload = () => {
-            if (typeof reader.result === 'string') {
-              terminal.current.write(reader.result);
-            } else if (reader.result instanceof ArrayBuffer) {
-              const data = new Uint8Array(reader.result);
-              terminal.current.write(data);
-            }
-          };
-          reader.readAsText(event.data);
-        } else if (event.data instanceof ArrayBuffer) {
-          const data = new Uint8Array(event.data);
-          terminal.current.write(data);
         }
       }
     };
-  };
+  }, [session, sessionId, vmStatus, reconnectAttempts, checkVmSmoothness]);
+
+  // Start VM status polling with optimized interval
+  const startVmStatusPolling = useCallback(() => {
+    if (vmCheckInterval.current) {
+      clearInterval(vmCheckInterval.current);
+    }
+    
+    vmCheckInterval.current = setInterval(async () => {
+      if (!isMounted.current) return;
+      
+      try {
+        const statusRes = await authGet(
+          `/api/practical-sessions/${sessionId}/vm_status/`
+        );
+        
+        if (statusRes && statusRes.status) {
+          setVmStatus(statusRes.status);
+          
+          if (statusRes.status === 'running' && session && session.status === 'starting') {
+            const updatedSession = await authGet(`/api/practical-sessions/${sessionId}/`);
+            setSession(updatedSession);
+            setIsExamStarted(true);
+            
+            // Check if SSH is ready before attempting connection
+            const checkSshBeforeConnect = async () => {
+              const isSshReady = await checkSshReady();
+              if (isSshReady) {
+                checkVmSmoothness();
+              } else {
+                setTimeout(checkSshBeforeConnect, 3000);
+              }
+            };
+            
+            checkSshBeforeConnect();
+          }
+        }
+        
+        vmStatusCheckCounter.current++;
+        if (vmStatusCheckCounter.current > 5) {
+          clearInterval(vmCheckInterval.current);
+          vmCheckInterval.current = setInterval(async () => {
+            if (!isMounted.current) return;
+            
+            try {
+              const statusRes = await authGet(`/api/practical-sessions/${sessionId}/vm_status/`);
+              if (statusRes && statusRes.status) {
+                setVmStatus(statusRes.status);
+              }
+            } catch (e) {
+              console.error('VM status check failed', e);
+            }
+          }, 10000);
+        }
+      } catch (e) {
+        console.error('VM status check failed', e);
+      }
+    }, VM_CHECK_INTERVAL);
+  }, [sessionId, session, checkVmSmoothness, checkSshReady]);
 
   // Restart VM
   const restartVm = async () => {
@@ -410,7 +443,8 @@ export default function PracticalExam() {
       setVmStatus('starting');
       setVmErrorDetails(null);
       setShowPreloader(true);
-      setPreloaderTimeLeft(30); // 30 seconds for VM restart
+      setPreloaderTimeLeft(PRELOADER_MAX_TIME);
+      setIsWebSocketConnected(false);
       
       if (terminal.current) {
         terminal.current.writeln('\r\n♻️ Restarting VM...\r\n');
@@ -418,10 +452,10 @@ export default function PracticalExam() {
       
       await authPost(`/api/practical-sessions/${sessionId}/restart_vm/`, {});
       
-      // Refresh session data
       const updatedSession = await authGet(`/api/practical-sessions/${sessionId}/`);
       setSession(updatedSession);
       
+      vmStatusCheckCounter.current = 0;
       startVmStatusPolling();
     } catch (err) {
       setConnectionStatus('Restart failed');
@@ -436,34 +470,35 @@ export default function PracticalExam() {
   };
 
   // Submit exam with confirmation
-  const submitExam = async () => {
+  const submitExam = async (isAutomatic = false) => {
     if (!session || isSubmitting) return;
     
-    // Show confirmation dialog
-    const result = await Swal.fire({
-      title: 'Submit Exam?',
-      html: `
-        <p>Are you sure you want to submit your exam?</p>
-        <p><strong>This action cannot be undone.</strong></p>
-        <div style="text-align: left; margin-top: 15px;">
-          <p>By submitting, you declare that:</p>
-          <ul>
-            <li>This is your own work</li>
-            <li>You haven't received unauthorized help</li>
-            <li>You followed all exam rules</li>
-          </ul>
-        </div>
-      `,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Yes, Submit Exam',
-      cancelButtonText: 'Cancel',
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33',
-      reverseButtons: true
-    });
-    
-    if (!result.isConfirmed) return;
+    if (!isAutomatic) {
+      const result = await Swal.fire({
+        title: 'Submit Exam?',
+        html: `
+          <p>Are you sure you want to submit your exam?</p>
+          <p><strong>This action cannot be undone.</strong></p>
+          <div style="text-align: left; margin-top: 15px;">
+            <p>By submitting, you declare that:</p>
+            <ul>
+              <li>This is your own work</li>
+              <li>You haven't received unauthorized help</li>
+              <li>You followed all exam rules</li>
+            </ul>
+          </div>
+        `,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Submit Exam',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        reverseButtons: true
+      });
+      
+      if (!result.isConfirmed) return;
+    }
     
     setIsSubmitting(true);
     try {
@@ -471,12 +506,11 @@ export default function PracticalExam() {
       
       const response = await authPost(`/api/practical-sessions/${session.id}/verify/`, {});
       
-      navigate(`/student/practical-results/${response.result_id}`, {
-        state: {
-          success: response.success,
-          output: response.output
-        }
-      });
+      if (response.status === 'started') {
+        verificationPollInterval.current = setInterval(checkVerificationStatus, VERIFICATION_POLL_INTERVAL);
+      } else {
+        throw new Error(response.message || 'Failed to start verification');
+      }
     } catch (err) {
       if (err.response?.status === 404) {
         setError('Session not found. Please contact your instructor.');
@@ -504,13 +538,6 @@ export default function PracticalExam() {
     return `${m}:${s}`;
   };
 
-  // Format preloader time
-  const formatPreloaderTime = (sec) => {
-    const m = Math.floor(sec / 60).toString().padStart(2, '0');
-    const s = (sec % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
-  };
-
   // Cleanup resources
   const cleanupResources = () => {
     if (websocket.current) {
@@ -521,14 +548,11 @@ export default function PracticalExam() {
     if (reconnectTimer.current) clearInterval(reconnectTimer.current);
     if (vmCheckInterval.current) clearInterval(vmCheckInterval.current);
     if (preloaderInterval.current) clearInterval(preloaderInterval.current);
+    if (verificationPollInterval.current) clearInterval(verificationPollInterval.current);
+    if (sshReadyCheckInterval.current) clearInterval(sshReadyCheckInterval.current);
     if (resizeHandlerRef.current) {
       window.removeEventListener('resize', resizeHandlerRef.current);
     }
-  };
-
-  // Toggle instructions panel
-  const toggleInstructions = () => {
-    setShowInstructions(!showInstructions);
   };
 
   // Preloader component
@@ -546,7 +570,7 @@ export default function PracticalExam() {
           <h2>Preparing Your Exam Environment</h2>
           <p>Please wait while we set up your virtual machine. This may take a few minutes.</p>
           <div className="practical-preloader-time">
-            Time remaining: {formatPreloaderTime(preloaderTimeLeft)}
+            Time remaining: {formatTime(preloaderTimeLeft)}
           </div>
           <div className="practical-preloader-tips">
             <h3>Tips for a successful exam:</h3>
@@ -601,7 +625,7 @@ export default function PracticalExam() {
           <div className="practical-header-actions">
             <button
               className="practical-btn practical-toggle-instructions"
-              onClick={toggleInstructions}
+              onClick={() => setShowInstructions(!showInstructions)}
             >
               {showInstructions ? 'Hide Instructions' : 'Show Instructions'}
             </button>
@@ -620,7 +644,7 @@ export default function PracticalExam() {
             </button>
             <button
               className="practical-btn practical-submit-btn"
-              onClick={submitExam}
+              onClick={() => submitExam(false)}
               disabled={!session || session.status !== 'running' || isSubmitting}
             >
               {isSubmitting ? 'Submitting...' : 'Submit Exam'}
