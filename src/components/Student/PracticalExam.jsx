@@ -7,436 +7,564 @@ import Swal from 'sweetalert2';
 import { authGet, authPost, baseURL } from '../../services/api';
 import '../CSS/PracticalExam.css';
 
-// Add WebSocket reconnection constants
+// Constants
 const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_INTERVAL = 3000;
 const VM_CHECK_INTERVAL = 8000;
+const VM_CHECK_INTERVAL_SLOW = 10000;
+// Preloader time set to 2 minutes = 120 seconds
 const PRELOADER_MAX_TIME = 120;
-const VERIFICATION_POLL_INTERVAL = 3000;
-const WEBSOCKET_CONNECT_DELAY = 2000; // Delay before attempting WebSocket connection
 
 export default function PracticalExam() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
 
-  // State variables
+  // UI state
   const [session, setSession] = useState(null);
   const [exam, setExam] = useState(null);
   const [remainingTime, setRemainingTime] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [connectionStatus, setConnectionStatus] = useState('Connecting...');
-  const [vmStatus, setVmStatus] = useState('checking');
-  const [isTerminalReady, setIsTerminalReady] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState('Initializing...');
+  const [vmStatus, setVmStatus] = useState('checking'); // not_created / starting / running / error
   const [vmErrorDetails, setVmErrorDetails] = useState(null);
-  const [retryCount, setRetryCount] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Preloader & start overlay
   const [showPreloader, setShowPreloader] = useState(true);
   const [preloaderTimeLeft, setPreloaderTimeLeft] = useState(PRELOADER_MAX_TIME);
-  const [warningCount, setWarningCount] = useState(0);
-  const [isExamStarted, setIsExamStarted] = useState(false);
-  const [showInstructions, setShowInstructions] = useState(true);
-  const [reconnectAttempts, setReconnectAttempts] = useState(0);
-  const [isWebSocketConnected, setIsWebSocketConnected] = useState(false);
+  const [startPromptVisible, setStartPromptVisible] = useState(true); // overlay prompting student to click to start
+  const [examClickedToStart, setExamClickedToStart] = useState(false);
+
+  // Terminal state
+  const [isTerminalReady, setIsTerminalReady] = useState(false);
 
   // Refs
   const terminalRef = useRef(null);
   const terminal = useRef(null);
   const fitAddon = useRef(null);
   const websocket = useRef(null);
+
   const timerRef = useRef(null);
-  const reconnectTimer = useRef(null);
-  const vmCheckInterval = useRef(null);
-  const isMounted = useRef(true);
-  const resizeHandlerRef = useRef(null);
   const preloaderInterval = useRef(null);
+  const vmCheckInterval = useRef(null);
+  const reconnectTimer = useRef(null);
+  const sshReadyCheckTimer = useRef(null);
+
+  const isMounted = useRef(true);
+  const reconnectAttemptsRef = useRef(0);
+  const isWebSocketConnectedRef = useRef(false);
   const sessionEndTime = useRef(null);
   const vmStatusCheckCounter = useRef(0);
-  const verificationPollInterval = useRef(null);
-  const sshReadyCheckInterval = useRef(null);
 
-  // Check if SSH is ready before connecting WebSocket
+  // Helpers
+  const formatTime = (sec) => {
+    if (typeof sec !== 'number' || sec < 0) return '00:00';
+    const m = Math.floor(sec / 60).toString().padStart(2, '0');
+    const s = (sec % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
+  // --- Backend SSH readiness check ---
   const checkSshReady = useCallback(async () => {
     if (!session || !session.ssh_port) return false;
-    
     try {
-      // Simple TCP connection check to see if SSH port is open
-      const response = await authGet(`/api/practical-sessions/${sessionId}/check_ssh/`);
-      return response.ready || false;
-    } catch (e) {
-      console.error('SSH readiness check failed:', e);
+      const res = await authGet(`/api/practical-sessions/${sessionId}/check_ssh/`);
+      return Boolean(res && res.ready);
+    } catch (err) {
+      console.error('checkSshReady error:', err);
       return false;
     }
   }, [session, sessionId]);
 
-  // Preloader timer effect
+  // --- Preloader countdown ---
   useEffect(() => {
-    if (showPreloader) {
-      preloaderInterval.current = setInterval(() => {
-        setPreloaderTimeLeft(prev => {
-          if (prev <= 1) {
-            clearInterval(preloaderInterval.current);
-            checkVmSmoothness();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else {
-      if (preloaderInterval.current) {
-        clearInterval(preloaderInterval.current);
-      }
-    }
+    if (!showPreloader) return;
+    preloaderInterval.current = setInterval(() => {
+      setPreloaderTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(preloaderInterval.current);
+          waitSshThenConnect();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
 
     return () => {
-      if (preloaderInterval.current) {
-        clearInterval(preloaderInterval.current);
-      }
+      if (preloaderInterval.current) clearInterval(preloaderInterval.current);
     };
   }, [showPreloader]);
 
-  // Check verification status
-  const checkVerificationStatus = useCallback(async () => {
-    if (!session) return;
-    
-    try {
-      const response = await authGet(`/api/practical-sessions/${session.id}/verification_status/`);
-      
-      if (response.completed) {
-        if (verificationPollInterval.current) {
-          clearInterval(verificationPollInterval.current);
-          verificationPollInterval.current = null;
-        }
-        
-        navigate(`/student/practical-results/${session.id}`, {
-          state: {
-            sessionId: session.id,
-            examId: session.exam,
-            score: response.score,
-            isSuccess: response.is_success,
-            details: response.details
-          }
-        });
-      }
-    } catch (err) {
-      console.error('Error checking verification status:', err);
-    }
-  }, [session, navigate]);
-
-  // Check if VM is running smoothly
-  const checkVmSmoothness = useCallback(() => {
-    if (vmStatus === 'running' && isWebSocketConnected) {
-      setShowPreloader(false);
-    } else if (vmStatus === 'running') {
-      // Start SSH readiness check before attempting WebSocket connection
-      const checkSshAndConnect = async () => {
-        const isSshReady = await checkSshReady();
-        if (isSshReady) {
-          initWebSocket();
-        } else {
-          // If SSH isn't ready, check again in a few seconds
-          setTimeout(checkSshAndConnect, 3000);
-        }
-      };
-      
-      checkSshAndConnect();
-    } else if (preloaderTimeLeft <= 0) {
-      setVmStatus('error');
-      setVmErrorDetails('VM failed to start within expected time');
-      setShowPreloader(false);
-    }
-  }, [vmStatus, preloaderTimeLeft, isWebSocketConnected, checkSshReady]);
-
-  // Load session data
+  // --- Load session & exam ---
   useEffect(() => {
     isMounted.current = true;
-    
-    const loadSession = async () => {
+    const load = async () => {
       try {
-        const sessionData = await authGet(`/api/practical-sessions/${sessionId}/`);
-        setSession(sessionData);
-        
-        if (sessionData.start_time && sessionData.exam) {
-          const examData = await authGet(`/api/practical-exams/${sessionData.exam}/`);
+        setLoading(true);
+        const s = await authGet(`/api/practical-sessions/${sessionId}/`);
+        if (!isMounted.current) return;
+        setSession(s);
+
+        if (s.exam) {
+          const examData = await authGet(`/api/practical-exams/${s.exam}/`);
           setExam(examData);
-          
-          const startTime = new Date(sessionData.start_time);
-          const endTime = new Date(startTime.getTime() + examData.duration_minutes * 60000);
-          sessionEndTime.current = endTime;
-          
-          const now = new Date();
-          const timeLeft = Math.max(0, endTime - now);
-          setRemainingTime(Math.floor(timeLeft / 1000));
+
+          // compute remainingTime from server-provided start_time if available
+          if (s.start_time && examData?.duration_minutes) {
+            const start = new Date(s.start_time);
+            const end = new Date(start.getTime() + examData.duration_minutes * 60000);
+            sessionEndTime.current = end;
+            const secs = Math.max(0, Math.floor((end - new Date()) / 1000));
+            setRemainingTime(secs);
+          }
         }
-        
-        if (sessionData.status === 'failed' || sessionData.status === 'terminated') {
-          setVmStatus('error');
-          setVmErrorDetails(sessionData.termination_reason || sessionData.startup_log || 'VM initialization failed');
-          setShowPreloader(false);
-        } else if (sessionData.status === 'running') {
+
+        // Set vmStatus from session
+        if (s.status === 'running') {
           setVmStatus('running');
-          setIsExamStarted(true);
-          
-          // Check if SSH is ready before attempting connection
-          const checkSshBeforeConnect = async () => {
-            const isSshReady = await checkSshReady();
-            if (isSshReady) {
-              checkVmSmoothness();
-            } else {
-              // If SSH isn't ready, check again
-              setTimeout(checkSshBeforeConnect, 3000);
-            }
-          };
-          
-          checkSshBeforeConnect();
+          // Hide start overlay if server already started session
+          setStartPromptVisible(false);
+          setExamClickedToStart(true);
+          // Immediately attempt ssh -> websocket connection
+          const ready = await checkSshReady();
+          if (ready) {
+            setShowPreloader(false);
+            initWebSocketSafely();
+          } else {
+            // start waiting/checking flow
+            waitSshThenConnect();
+          }
+        } else if (s.status === 'failed' || s.status === 'terminated') {
+          setVmStatus('error');
+          setVmErrorDetails(s.termination_reason || s.startup_log || 'VM failed');
+          setShowPreloader(false);
         } else {
+          setVmStatus('starting');
           startVmStatusPolling();
         }
-        
+
         setLoading(false);
       } catch (err) {
+        console.error('load session error', err);
         setError(err.message || 'Failed to load session');
         setLoading(false);
       }
     };
 
-    loadSession();
+    load();
 
     return () => {
       isMounted.current = false;
-      cleanupResources();
+      cleanupAll();
     };
-  }, [sessionId, retryCount, checkVmSmoothness, checkSshReady]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId]);
 
-  // Initialize terminal
+  // --- Terminal initialization (xterm) ---
   useEffect(() => {
-    if (!session || !exam || !terminalRef.current) return;
-    
+    if (!terminalRef.current || !exam) return;
+
     if (terminal.current) {
+      // Terminal exists: show messages depending on vmStatus
       terminal.current.clear();
       if (vmStatus === 'error') {
-        terminal.current.writeln('\r\n❌ VM Error: ' + (vmErrorDetails || 'Failed to start VM') + '\r\n');
-        terminal.current.writeln('Please contact your instructor for assistance.\r\n');
-      } else if (vmStatus !== 'running') {
-        terminal.current.writeln('\r\n⏳ Waiting for VM to start...\r\n');
-        setConnectionStatus('Waiting for VM');
+        terminal.current.writeln(`\r\n❌ VM Error: ${vmErrorDetails || 'Failed to start VM'}\r\n`);
+      } else {
+        terminal.current.writeln('\r\n⏳ Waiting for VM or connecting...\r\n');
       }
       return;
     }
-    
+
     terminal.current = new Terminal({
       cursorBlink: true,
-      fontSize: 14,
-      theme: { background: '#1e1e1e', foreground: '#d4d4d4' },
       convertEol: true,
+      fontSize: 14,
       disableStdin: false,
+      theme: { background: '#1e1e1e', foreground: '#d4d4d4' }
     });
-
     fitAddon.current = new FitAddon();
     terminal.current.loadAddon(fitAddon.current);
-    
-    const terminalContainer = terminalRef.current;
-    if (terminalContainer && terminalContainer.offsetWidth > 0 && terminalContainer.offsetHeight > 0) {
-      terminal.current.open(terminalContainer);
-      
-      const fitTerminal = () => {
-        if (fitAddon.current && terminalContainer.offsetWidth > 0) {
-          try {
-            fitAddon.current.fit();
-          } catch (e) {
-            console.error('Terminal fit error:', e);
-          }
-        }
-      };
-      
-      setTimeout(fitTerminal, 100);
-      
-      resizeHandlerRef.current = () => {
-        if (fitAddon.current && terminalContainer.offsetWidth > 0) {
-          try {
-            fitAddon.current.fit();
-          } catch (e) {
-            console.error('Terminal resize error:', e);
-          }
-        }
-      };
-      
-      window.addEventListener('resize', resizeHandlerRef.current);
 
-      if (vmStatus === 'error') {
-        terminal.current.writeln('\r\n❌ VM Error: ' + (vmErrorDetails || 'Failed to start VM') + '\r\n');
-        terminal.current.writeln('Please contact your instructor for assistance.\r\n');
-      } else if (vmStatus !== 'running') {
-        terminal.current.writeln('\r\n⏳ Waiting for VM to start...\r\n');
-        setConnectionStatus('Waiting for VM');
+    const container = terminalRef.current;
+    terminal.current.open(container);
+    setTimeout(() => {
+      try { fitAddon.current.fit(); } catch (e) { /* ignore */ }
+    }, 100);
+
+    const onResize = () => {
+      try { fitAddon.current && fitAddon.current.fit(); } catch (e) { /* ignore */ }
+    };
+    window.addEventListener('resize', onResize);
+
+    // keystroke handler: first keystroke will start exam (if overlay present)
+    terminal.current.onData(async (data) => {
+      if (!examClickedToStart) {
+        // treat first interaction as "start exam" trigger
+        startExamInteractionHandler();
       }
-
-      terminal.current.onData(data => {
+      try {
         if (websocket.current && websocket.current.readyState === WebSocket.OPEN) {
-          websocket.current.send(JSON.stringify({ type: 'input', data }));
-        } else if (terminal.current) {
+          // send raw bytes/text directly (backend consumer should forward to SSH channel)
+          websocket.current.send(data);
+        } else {
+          // local echo fallback
           terminal.current.write(data);
         }
-      });
+      } catch (e) {
+        console.error('terminal onData send error', e);
+      }
+    });
 
-      setIsTerminalReady(true);
-    }
+    setIsTerminalReady(true);
 
     return () => {
-      if (resizeHandlerRef.current) {
-        window.removeEventListener('resize', resizeHandlerRef.current);
-      }
+      window.removeEventListener('resize', onResize);
     };
-  }, [session, exam, vmStatus, vmErrorDetails]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [terminalRef, exam, vmStatus, vmErrorDetails]);
 
-  // Initialize WebSocket connection with reconnection logic
-  const initWebSocket = useCallback(() => {
-    if (!session || !session.token) {
-      console.error('Session token not available');
-      return;
-    }
+  // --- Timer countdown ---
+  useEffect(() => {
+    if (!sessionEndTime.current) return;
     
-    if (websocket.current) {
-      // Don't close existing connection if it's still open
-      if (websocket.current.readyState === WebSocket.OPEN) {
+    timerRef.current = setInterval(() => {
+      const now = new Date();
+      const secs = Math.max(0, Math.floor((sessionEndTime.current - now) / 1000));
+      setRemainingTime(secs);
+      
+      if (secs === 0) {
+        clearInterval(timerRef.current);
+        // Auto-submit when time is up
+        submitExam(true);
+      }
+    }, 1000);
+    
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [sessionEndTime.current]);
+
+  // --- When preloader hides & VM running & terminal ready -> auto connect WS ---
+  useEffect(() => {
+    if (!showPreloader && vmStatus === 'running' && isTerminalReady) {
+      // ensure we attempt connect once after a short delay (let terminal settle)
+      const t = setTimeout(async () => {
+        if (websocket.current && websocket.current.readyState === WebSocket.OPEN) return;
+        const ready = await checkSshReady();
+        if (ready) {
+          initWebSocketSafely();
+          setShowPreloader(false);
+        } else {
+          waitSshThenConnect();
+        }
+      }, 200);
+      return () => clearTimeout(t);
+    }
+  }, [showPreloader, vmStatus, isTerminalReady, checkSshReady]);
+
+  // --- VM status polling ---
+  const startVmStatusPolling = useCallback(() => {
+    if (vmCheckInterval.current) clearInterval(vmCheckInterval.current);
+    vmStatusCheckCounter.current = 0;
+
+    // immediate check
+    (async () => {
+      try {
+        const res = await authGet(`/api/practical-sessions/${sessionId}/vm_status/`);
+        if (res && res.status) {
+          setVmStatus(res.status);
+          if (res.status === 'running') {
+            const updated = await authGet(`/api/practical-sessions/${sessionId}/`);
+            setSession(updated);
+            waitSshThenConnect();
+          }
+        }
+      } catch (e) {
+        console.error('vm status initial check failed', e);
+      }
+    })();
+
+    vmCheckInterval.current = setInterval(async () => {
+      if (!isMounted.current) return;
+      try {
+        const res = await authGet(`/api/practical-sessions/${sessionId}/vm_status/`);
+        if (res && res.status) {
+          setVmStatus(res.status);
+          if (res.status === 'running') {
+            if (!session || session.status !== 'running') {
+              const updated = await authGet(`/api/practical-sessions/${sessionId}/`);
+              setSession(updated);
+              waitSshThenConnect();
+            }
+          }
+        }
+      } catch (e) {
+        console.error('vm status poll failed', e);
+      }
+
+      vmStatusCheckCounter.current += 1;
+      if (vmStatusCheckCounter.current === 6) {
+        clearInterval(vmCheckInterval.current);
+        vmCheckInterval.current = setInterval(async () => {
+          if (!isMounted.current) return;
+          try {
+            const slowRes = await authGet(`/api/practical-sessions/${sessionId}/vm_status/`);
+            if (slowRes && slowRes.status) setVmStatus(slowRes.status);
+          } catch (e) {
+            console.error('vm slow poll failed', e);
+          }
+        }, VM_CHECK_INTERVAL_SLOW);
+      }
+    }, VM_CHECK_INTERVAL);
+  }, [sessionId, session]);
+
+  // wait for ssh then call checkVmSmoothness()
+  async function waitSshThenConnect() {
+    let tries = 0;
+    const maxTries = 30;
+    while (tries < maxTries && isMounted.current) {
+      const ready = await checkSshReady();
+      if (ready) {
+        // If the overlay is still visible, hide it (student may not have clicked yet)
+        setShowPreloader(false);
+        setStartPromptVisible(false);
+        initWebSocketSafely();
         return;
       }
-      websocket.current.close();
-      websocket.current = null;
+      tries += 1;
+      await new Promise(r => setTimeout(r, 2000));
     }
+    // fallback - show VM message and stop preloader
+    setShowPreloader(false);
+    setVmErrorDetails('SSH did not become reachable within expected time.');
+  }
+
+  // --- WebSocket init (safe wrapper) ---
+  const initWebSocketSafely = () => {
+    try {
+      initWebSocket();
+    } catch (e) {
+      console.error('initWebSocketSafely error', e);
+    }
+  };
+
+  // initWebSocket implementation
+  const initWebSocket = useCallback(() => {
+    if (!session || !session.token) {
+      console.warn('No session or token to open websocket');
+      return;
+    }
+
+    if (websocket.current && websocket.current.readyState === WebSocket.OPEN) return;
+
+    // close any existing
+    try { websocket.current && websocket.current.close(); } catch (_) {}
+    websocket.current = null;
 
     const isSecure = baseURL.startsWith('https');
     const wsProtocol = isSecure ? 'wss' : 'ws';
     const host = baseURL.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
-    
     const token = encodeURIComponent(session.token);
     const wsUrl = `${wsProtocol}://${host}/ws/practical/${sessionId}/?token=${token}`;
 
     setConnectionStatus('Connecting to terminal...');
-    
-    if (terminal.current) {
-      terminal.current.writeln('\r\n🔌 Connecting to exam environment...\r\n');
-    }
+    terminal.current && terminal.current.writeln('\r\n🔌 Connecting to exam environment...\r\n');
 
-    websocket.current = new WebSocket(wsUrl);
+    try {
+      websocket.current = new WebSocket(wsUrl);
+      try { websocket.current.binaryType = 'arraybuffer'; } catch (_) {}
+    } catch (e) {
+      console.error('WebSocket creation failed:', e);
+      setConnectionStatus('Failed to create WebSocket');
+      return;
+    }
 
     websocket.current.onopen = () => {
+      reconnectAttemptsRef.current = 0;
+      isWebSocketConnectedRef.current = true;
       setConnectionStatus('Connected to terminal');
-      setReconnectAttempts(0);
-      setIsWebSocketConnected(true);
-      
-      if (terminal.current) {
-        terminal.current.writeln('\r\nYou can now begin your exam. Good luck!\r\n');
-        setTimeout(() => {
-          if (websocket.current && websocket.current.readyState === WebSocket.OPEN) {
-            websocket.current.send(JSON.stringify({ type: 'input', data: '\n' }));
+      setShowPreloader(false);
+      terminal.current && terminal.current.writeln('\r\nYou can now begin your exam. Good luck!\r\n');
+      // nudge the shell
+      setTimeout(() => {
+        try { websocket.current && websocket.current.readyState === WebSocket.OPEN && websocket.current.send('\n'); } catch (_) {}
+      }, 300);
+    };
+
+    websocket.current.onerror = (ev) => {
+      console.error('WebSocket error', ev);
+      isWebSocketConnectedRef.current = false;
+      setConnectionStatus('Terminal connection error');
+      terminal.current && terminal.current.writeln('\r\n❌ Connection error\r\n');
+    };
+
+    websocket.current.onclose = (ev) => {
+      console.warn('WebSocket closed', ev);
+      isWebSocketConnectedRef.current = false;
+      setConnectionStatus(`Terminal disconnected: ${ev.reason || 'Unknown'}`);
+      terminal.current && terminal.current.writeln(`\r\n🔌 Connection closed: ${ev.reason || 'Unknown'}\r\n`);
+
+      // Try to reconnect if VM still running
+      if (vmStatus === 'running' && reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+        reconnectAttemptsRef.current += 1;
+        const attemptsLeft = MAX_RECONNECT_ATTEMPTS - reconnectAttemptsRef.current;
+        terminal.current && terminal.current.writeln(`\r\nAttempting to reconnect... (${attemptsLeft} attempts left)\r\n`);
+        if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+        reconnectTimer.current = setTimeout(async () => {
+          const ready = await checkSshReady();
+          if (ready) initWebSocketSafely();
+          else if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+            reconnectTimer.current = setTimeout(initWebSocketSafely, RECONNECT_INTERVAL);
           }
-        }, 500);
-      }
-      
-      checkVmSmoothness();
-    };
-
-    websocket.current.onerror = (error) => {
-      setConnectionStatus(`Terminal error: ${error.message || 'Unknown error'}`);
-      setIsWebSocketConnected(false);
-      
-      if (terminal.current) {
-        terminal.current.writeln(`\r\n❌ Connection error: ${error.message || 'Unknown error'}\r\n`);
+        }, RECONNECT_INTERVAL);
       }
     };
 
-    websocket.current.onclose = (event) => {
-      setConnectionStatus(`Terminal disconnected: ${event.reason || 'Unknown reason'}`);
-      setIsWebSocketConnected(false);
-      
-      if (terminal.current) {
-        terminal.current.writeln(`\r\n🔌 Connection closed: ${event.reason || 'Unknown reason'}\r\n`);
-        
-        if (vmStatus === 'running' && !event.reason.includes('normal') && 
-            reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-          const attemptsLeft = MAX_RECONNECT_ATTEMPTS - reconnectAttempts;
-          terminal.current.writeln(`\r\nAttempting to reconnect... (${attemptsLeft} attempts left)\r\n`);
-          
-          setReconnectAttempts(prev => prev + 1);
-          reconnectTimer.current = setTimeout(initWebSocket, RECONNECT_INTERVAL);
-        }
-      }
-    };
+    websocket.current.onmessage = (ev) => {
+      if (!terminal.current) return;
 
-    websocket.current.onmessage = (event) => {
-      if (terminal.current) {
+      const deliverText = (text) => {
         try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'output') {
-            terminal.current.write(data.data);
+          const parsed = JSON.parse(text);
+          if (parsed && parsed.type === 'output' && typeof parsed.data === 'string') {
+            terminal.current.write(parsed.data);
+            setShowPreloader(false);
+            return;
           }
-        } catch (e) {
-          terminal.current.write(event.data);
+        } catch (e) { /* not JSON */ }
+        terminal.current.write(text);
+        setShowPreloader(false);
+      };
+
+      try {
+        if (ev.data instanceof ArrayBuffer) {
+          const decoder = new TextDecoder();
+          const txt = decoder.decode(ev.data);
+          deliverText(txt);
+        } else if (typeof ev.data === 'string') {
+          deliverText(ev.data);
+        } else if (ev.data instanceof Blob) {
+          ev.data.arrayBuffer().then(buf => {
+            const decoder2 = new TextDecoder();
+            const txt = decoder2.decode(buf);
+            deliverText(txt);
+          }).catch(e => console.error('blob->arrayBuffer error', e));
+        } else {
+          deliverText(String(ev.data));
         }
+      } catch (err) {
+        console.error('onmessage processing error', err);
       }
     };
-  }, [session, sessionId, vmStatus, reconnectAttempts, checkVmSmoothness]);
+  }, [session, sessionId, vmStatus, checkSshReady]);
 
-  // Start VM status polling with optimized interval
-  const startVmStatusPolling = useCallback(() => {
-    if (vmCheckInterval.current) {
-      clearInterval(vmCheckInterval.current);
+  // --- Submit (verify) ---
+  const submitExam = async (isAutomatic = false) => {
+    if (!session || isSubmitting) return;
+    if (!isAutomatic) {
+      const result = await Swal.fire({
+        title: 'Submit Exam?',
+        html: `
+          <p>Are you sure you want to submit your exam?</p>
+          <p><strong>This action cannot be undone.</strong></p>
+        `,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Submit',
+        cancelButtonText: 'Cancel'
+      });
+      if (!result.isConfirmed) return;
     }
-    
-    vmCheckInterval.current = setInterval(async () => {
-      if (!isMounted.current) return;
-      
-      try {
-        const statusRes = await authGet(
-          `/api/practical-sessions/${sessionId}/vm_status/`
-        );
-        
-        if (statusRes && statusRes.status) {
-          setVmStatus(statusRes.status);
-          
-          if (statusRes.status === 'running' && session && session.status === 'starting') {
-            const updatedSession = await authGet(`/api/practical-sessions/${sessionId}/`);
-            setSession(updatedSession);
-            setIsExamStarted(true);
-            
-            // Check if SSH is ready before attempting connection
-            const checkSshBeforeConnect = async () => {
-              const isSshReady = await checkSshReady();
-              if (isSshReady) {
-                checkVmSmoothness();
-              } else {
-                setTimeout(checkSshBeforeConnect, 3000);
-              }
-            };
-            
-            checkSshBeforeConnect();
-          }
-        }
-        
-        vmStatusCheckCounter.current++;
-        if (vmStatusCheckCounter.current > 5) {
-          clearInterval(vmCheckInterval.current);
-          vmCheckInterval.current = setInterval(async () => {
-            if (!isMounted.current) return;
-            
-            try {
-              const statusRes = await authGet(`/api/practical-sessions/${sessionId}/vm_status/`);
-              if (statusRes && statusRes.status) {
-                setVmStatus(statusRes.status);
-              }
-            } catch (e) {
-              console.error('VM status check failed', e);
-            }
-          }, 10000);
-        }
-      } catch (e) {
-        console.error('VM status check failed', e);
-      }
-    }, VM_CHECK_INTERVAL);
-  }, [sessionId, session, checkVmSmoothness, checkSshReady]);
 
-  // Restart VM
+    setIsSubmitting(true);
+    try {
+      cleanupAll(); // close ws, timers
+      await authPost(`/api/practical-sessions/${session.id}/verify/`, {});
+      
+      // Navigate to result page immediately
+      navigate(`/student/practical-results/${session.id}`, {
+        state: {
+          pendingVerification: true,
+          message: 'Verification started. You will get an email when result is ready.'
+        }
+      });
+    } catch (err) {
+      console.error('submitExam error', err);
+      setError('Failed to submit exam: ' + (err.message || err));
+      setIsSubmitting(false);
+    }
+  };
+
+  // --- Start exam interaction (called on first click or keypress) ---
+  const startExamInteraction = useCallback(async () => {
+    if (examClickedToStart) return;
+    setExamClickedToStart(true);
+    setStartPromptVisible(false);
+
+    // Try to call server start endpoint if present
+    try {
+      // Fixed endpoint - use the correct URL pattern
+      const res = await authPost(`/api/practical-sessions/${sessionId}/start_vm/`, {});
+      if (res && res.id) {
+        setSession(res);
+        if (res.status === 'running') {
+          setVmStatus('running');
+        }
+        // compute remaining time if server returned start_time
+        if (res.start_time && exam?.duration_minutes) {
+          const start = new Date(res.start_time);
+          const end = new Date(start.getTime() + exam.duration_minutes * 60000);
+          sessionEndTime.current = end;
+          setRemainingTime(Math.max(0, Math.floor((end - new Date()) / 1000)));
+        }
+      }
+    } catch (e) {
+      // silently fallback to client-side start (no server start endpoint)
+      console.warn('server-side start not available', e);
+      if (exam?.duration_minutes) {
+        const now = new Date();
+        const end = new Date(now.getTime() + exam.duration_minutes * 60000);
+        sessionEndTime.current = end;
+        setRemainingTime(Math.max(0, Math.floor((end - new Date()) / 1000)));
+      }
+    }
+
+    // Hide preloader and attempt to connect if VM already ready
+    setShowPreloader(false);
+    if (vmStatus === 'running') {
+      const ready = await checkSshReady();
+      if (ready) initWebSocketSafely();
+      else waitSshThenConnect();
+    } else {
+      startVmStatusPolling();
+    }
+  }, [exam, examClickedToStart, sessionId, vmStatus, checkSshReady]);
+
+  const startExamInteractionHandler = () => {
+    startExamInteraction().catch(e => console.error('startExamInteraction error', e));
+  };
+
+  // --- Manual refresh ---
+  const refreshSession = async () => {
+    try {
+      setLoading(true);
+      const s = await authGet(`/api/practical-sessions/${sessionId}/`);
+      setSession(s);
+      setLoading(false);
+      if (s.status === 'running') {
+        setVmStatus('running');
+        waitSshThenConnect();
+      } else {
+        startVmStatusPolling();
+      }
+    } catch (e) {
+      setLoading(false);
+      setError('Failed to refresh session: ' + (e.message || e));
+    }
+  };
+
+  // --- Restart VM handler ---
   const restartVm = async () => {
     try {
       setConnectionStatus('Restarting VM...');
@@ -444,262 +572,212 @@ export default function PracticalExam() {
       setVmErrorDetails(null);
       setShowPreloader(true);
       setPreloaderTimeLeft(PRELOADER_MAX_TIME);
-      setIsWebSocketConnected(false);
-      
-      if (terminal.current) {
-        terminal.current.writeln('\r\n♻️ Restarting VM...\r\n');
-      }
-      
+      isWebSocketConnectedRef.current = false;
+      reconnectAttemptsRef.current = 0;
+      cleanupWebsocketOnly();
+
       await authPost(`/api/practical-sessions/${sessionId}/restart_vm/`, {});
-      
-      const updatedSession = await authGet(`/api/practical-sessions/${sessionId}/`);
-      setSession(updatedSession);
-      
+      const updated = await authGet(`/api/practical-sessions/${sessionId}/`);
+      setSession(updated);
       vmStatusCheckCounter.current = 0;
       startVmStatusPolling();
     } catch (err) {
+      console.error('Restart failed', err);
       setConnectionStatus('Restart failed');
       setVmStatus('error');
       setVmErrorDetails(err.message || 'Failed to restart VM');
       setShowPreloader(false);
-      
-      if (terminal.current) {
-        terminal.current.writeln(`\r\n❌ Restart failed: ${err.message}\r\n`);
-      }
+      terminal.current && terminal.current.writeln(`\r\n❌ Restart failed: ${err?.message || err}\r\n`);
     }
   };
 
-  // Submit exam with confirmation
-  const submitExam = async (isAutomatic = false) => {
-    if (!session || isSubmitting) return;
-    
-    if (!isAutomatic) {
-      const result = await Swal.fire({
-        title: 'Submit Exam?',
-        html: `
-          <p>Are you sure you want to submit your exam?</p>
-          <p><strong>This action cannot be undone.</strong></p>
-          <div style="text-align: left; margin-top: 15px;">
-            <p>By submitting, you declare that:</p>
-            <ul>
-              <li>This is your own work</li>
-              <li>You haven't received unauthorized help</li>
-              <li>You followed all exam rules</li>
-            </ul>
-          </div>
-        `,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Yes, Submit Exam',
-        cancelButtonText: 'Cancel',
-        confirmButtonColor: '#3085d6',
-        cancelButtonColor: '#d33',
-        reverseButtons: true
-      });
-      
-      if (!result.isConfirmed) return;
-    }
-    
-    setIsSubmitting(true);
-    try {
-      cleanupResources();
-      
-      const response = await authPost(`/api/practical-sessions/${session.id}/verify/`, {});
-      
-      if (response.status === 'started') {
-        verificationPollInterval.current = setInterval(checkVerificationStatus, VERIFICATION_POLL_INTERVAL);
-      } else {
-        throw new Error(response.message || 'Failed to start verification');
-      }
-    } catch (err) {
-      if (err.response?.status === 404) {
-        setError('Session not found. Please contact your instructor.');
-      } else {
-        setError('Failed to submit exam: ' + err.message);
-      }
-      
-      if (terminal.current) {
-        terminal.current.writeln(`\r\n❌ Submission error: ${err.message}\r\n`);
-      }
-      
-      setIsSubmitting(false);
-    }
+  // --- Cleanup helpers ---
+  const cleanupWebsocketOnly = () => {
+    try { websocket.current && websocket.current.close(); } catch (_) {}
+    websocket.current = null;
+    isWebSocketConnectedRef.current = false;
+    reconnectAttemptsRef.current = 0;
+    try { if (reconnectTimer.current) clearTimeout(reconnectTimer.current); } catch (_) {}
   };
 
-  // Refresh the session
-  const refreshSession = () => {
-    setRetryCount(prev => prev + 1);
+  const cleanupAll = () => {
+    cleanupWebsocketOnly();
+    try { if (timerRef.current) clearInterval(timerRef.current); } catch (_) {}
+    try { if (preloaderInterval.current) clearInterval(preloaderInterval.current); } catch (_) {}
+    try { if (vmCheckInterval.current) clearInterval(vmCheckInterval.current); } catch (_) {}
+    try { if (sshReadyCheckTimer.current) clearTimeout(sshReadyCheckTimer.current); } catch(_) {}
   };
 
-  // Format time display
-  const formatTime = (sec) => {
-    const m = Math.floor(sec / 60).toString().padStart(2, '0');
-    const s = (sec % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
-  };
+  // Unmount cleanup
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+      cleanupAll();
+    };
+  }, []);
 
-  // Cleanup resources
-  const cleanupResources = () => {
-    if (websocket.current) {
-      websocket.current.close();
-      websocket.current = null;
-    }
-    if (timerRef.current) clearInterval(timerRef.current);
-    if (reconnectTimer.current) clearInterval(reconnectTimer.current);
-    if (vmCheckInterval.current) clearInterval(vmCheckInterval.current);
-    if (preloaderInterval.current) clearInterval(preloaderInterval.current);
-    if (verificationPollInterval.current) clearInterval(verificationPollInterval.current);
-    if (sshReadyCheckInterval.current) clearInterval(sshReadyCheckInterval.current);
-    if (resizeHandlerRef.current) {
-      window.removeEventListener('resize', resizeHandlerRef.current);
-    }
-  };
-
-  // Preloader component
-  const Preloader = () => {
-    return (
-      <div className="practical-preloader">
-        <div className="practical-preloader-content">
-          <div className="practical-preloader-spinner">
-            <div className="practical-preloader-dot"></div>
-            <div className="practical-preloader-dot"></div>
-            <div className="practical-preloader-dot"></div>
-            <div className="practical-preloader-dot"></div>
-            <div className="practical-preloader-dot"></div>
-          </div>
-          <h2>Preparing Your Exam Environment</h2>
-          <p>Please wait while we set up your virtual machine. This may take a few minutes.</p>
-          <div className="practical-preloader-time">
-            Time remaining: {formatTime(preloaderTimeLeft)}
-          </div>
-          <div className="practical-preloader-tips">
-            <h3>Tips for a successful exam:</h3>
-            <ul>
-              <li>Ensure you have a stable internet connection</li>
-              <li>Do not refresh the page during the exam</li>
-              <li>Read all instructions carefully before starting</li>
-              <li>Manage your time wisely</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  if (loading) {
-    return <div className="practical-loading">Loading exam environment...</div>;
-  }
+  // --- Render UI ---
+  if (loading) return <div className="practical-loading">Loading exam environment...</div>;
 
   if (error) {
     return (
       <div className="practical-error">
-        {error}
-        <button 
-          className="practical-back-btn"
-          onClick={() => navigate('/student')}
-        >
-          Go Back
-        </button>
+        <p>{error}</p>
+        <button className="practical-back-btn" onClick={() => navigate('/student')}>Go Back</button>
       </div>
     );
   }
 
-  if (showPreloader) {
-    return <Preloader />;
-  }
+  const Preloader = () => (
+    <div className="practical-preloader">
+      <div className="practical-preloader-content">
+        <div className="practical-preloader-spinner">
+          <div className="practical-preloader-dot" />
+          <div className="practical-preloader-dot" />
+          <div className="practical-preloader-dot" />
+          <div className="practical-preloader-dot" />
+          <div className="practical-preloader-dot" />
+        </div>
+        <h2>Preparing Your Exam Environment</h2>
+        <p>Please wait while we set up your virtual machine. This may take a few minutes.</p>
+        <div className="practical-preloader-time">Time remaining: {formatTime(preloaderTimeLeft)}</div>
+        <div className="practical-preloader-tips">
+          <h3>Tips for a successful exam:</h3>
+          <ul>
+            <li>Ensure you have a stable internet connection</li>
+            <li>Do not refresh the page during the exam</li>
+            <li>Read all instructions carefully before starting</li>
+            <li>Manage your time wisely</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+
+  const StartPrompt = () => (
+    <div
+      className="practical-start-overlay"
+      onClick={(e) => { e.stopPropagation(); startExamInteractionHandler(); }}
+      style={{
+        position: 'absolute',
+        inset: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'rgba(0,0,0,0.55)',
+        zIndex: 40,
+        color: '#fff'
+      }}
+    >
+      <div style={{
+        textAlign: 'center',
+        padding: '28px',
+        borderRadius: '8px',
+        background: 'rgba(30,30,30,0.95)',
+        boxShadow: '0 6px 30px rgba(0,0,0,0.6)'
+      }}>
+        <h2 style={{ marginBottom: 12 }}>Ready to start your exam?</h2>
+        <p style={{ marginBottom: 18 }}>
+          Click anywhere on this box or press any key in the terminal to begin. Your exam timer will start immediately.
+        </p>
+        <button
+          className="practical-btn practical-start-btn"
+          onClick={(ev) => { ev.stopPropagation(); startExamInteractionHandler(); }}
+          style={{ padding: '10px 18px', fontSize: 16 }}
+        >
+          Start Exam
+        </button>
+      </div>
+    </div>
+  );
+
+  if (showPreloader) return <Preloader />;
 
   return (
-    <div className="practical-container">
-      {/* Header with exam info and controls */}
+    <div className="practical-container" style={{ position: 'relative' }} onClick={() => {
+      if (!examClickedToStart && startPromptVisible) startExamInteractionHandler();
+    }}>
       <div className="practical-header">
         <div className="practical-header-content">
           <div className="practical-header-info">
-            <h2>{exam?.title} - Practical Exam</h2>
+            <h2>{exam?.title || 'Practical Exam'}</h2>
             <div className="practical-header-status">
               <span className="practical-time">Time Left: {formatTime(remainingTime)}</span>
-              <span className="practical-vm-status">
-                VM Status: <span className={`status-${vmStatus}`}>{vmStatus}</span>
-              </span>
+              <span className="practical-vm-status">VM Status: <span className={`status-${vmStatus}`}>{vmStatus}</span></span>
             </div>
           </div>
+
           <div className="practical-header-actions">
-            <button
-              className="practical-btn practical-toggle-instructions"
-              onClick={() => setShowInstructions(!showInstructions)}
-            >
-              {showInstructions ? 'Hide Instructions' : 'Show Instructions'}
+            <button className="practical-btn practical-toggle-instructions" onClick={() => { /* toggle handled elsewhere if needed */ }}>
+              { /* placeholder */ } Instructions
             </button>
-            <button
-              className="practical-btn practical-refresh-btn"
-              onClick={refreshSession}
-            >
-              Refresh
-            </button>
-            <button
-              className="practical-btn practical-restart-btn"
-              onClick={restartVm}
-              disabled={vmStatus === 'starting'}
-            >
+            <button className="practical-btn practical-refresh-btn" onClick={refreshSession}>Refresh</button>
+            <button className="practical-btn practical-restart-btn" onClick={restartVm} disabled={vmStatus === 'starting'}>
               {vmStatus === 'starting' ? 'Restarting...' : 'Restart VM'}
             </button>
-            <button
-              className="practical-btn practical-submit-btn"
-              onClick={() => submitExam(false)}
-              disabled={!session || session.status !== 'running' || isSubmitting}
-            >
+            <button className="practical-btn practical-submit-btn" onClick={() => submitExam(false)} disabled={!session || session.status !== 'running' || isSubmitting}>
               {isSubmitting ? 'Submitting...' : 'Submit Exam'}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Main exam interface */}
       <div className="practical-main">
-        {showInstructions && (
-          <div className="practical-instructions">
-            <div className="practical-instructions-content">
-              <h3>Exam Instructions</h3>
-              <div className="practical-instructions-text">
-                {exam?.description}
-              </div>
-              {exam?.verification_command && (
-                <div className="practical-verification">
-                  <h4>Verification Command:</h4>
-                  <code>{exam.verification_command}</code>
-                </div>
-              )}
-              {vmStatus === 'error' && (
-                <div className="practical-error-panel">
-                  <h4>VM Error</h4>
-                  <p>{vmErrorDetails || 'The virtual machine failed to start properly.'}</p>
-                </div>
-              )}
+        <div className="practical-instructions">
+          <div className="practical-instructions-content">
+            <h3>Exam Instructions</h3>
+            <div className="practical-instructions-text">
+              {exam?.description || 'Follow the instructions provided by your instructor.'}
             </div>
+            {exam?.verification_command && (
+              <div className="practical-verification">
+                <h4>Verification Command:</h4>
+                <code>{exam.verification_command}</code>
+              </div>
+            )}
+            {vmStatus === 'error' && (
+              <div className="practical-error-panel">
+                <h4>VM Error</h4>
+                <p>{vmErrorDetails || 'The virtual machine failed to start properly.'}</p>
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
-        <div className="practical-terminal-container">
+        <div className="practical-terminal-container" style={{ position: 'relative' }}>
           <div className="practical-terminal-header">
             <span>Terminal</span>
             <div className="practical-terminal-actions">
-              <button
-                className="practical-btn practical-reconnect-btn"
-                onClick={initWebSocket}
-                disabled={vmStatus !== 'running'}
-              >
+              <button className="practical-btn practical-reconnect-btn" onClick={() => initWebSocketSafely()} disabled={vmStatus !== 'running'}>
                 Reconnect
               </button>
             </div>
           </div>
-          <div className="practical-terminal-body">
+
+          <div className="practical-terminal-body" style={{ position: 'relative' }}>
             <div
               ref={terminalRef}
               className="practical-terminal"
+              style={{ width: '100%', height: '520px', cursor: startPromptVisible ? 'pointer' : 'text' }}
+              onClick={(e) => { e.stopPropagation(); if (!examClickedToStart && startPromptVisible) startExamInteractionHandler(); }}
             />
+
+            {startPromptVisible && !examClickedToStart && (
+              <div style={{
+                position: 'absolute',
+                left: 0, right: 0, top: 0, bottom: 0,
+                zIndex: 30,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                pointerEvents: 'none'
+              }}>
+                <div style={{ pointerEvents: 'auto' }}>
+                  <StartPrompt />
+                </div>
+              </div>
+            )}
           </div>
-          <div className="practical-terminal-status">
-            Status: {connectionStatus}
-          </div>
+
+          <div className="practical-terminal-status">Status: {connectionStatus}</div>
         </div>
       </div>
     </div>

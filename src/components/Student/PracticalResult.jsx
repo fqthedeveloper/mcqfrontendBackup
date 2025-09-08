@@ -1,24 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { authGet, authPost } from '../../services/api';
-import '../CSS/PracticalResult.css';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
+import { authGet } from '../../services/api';
+import './PracticalExamResult.css';
 
-export default function PracticalResult() {
+export default function PracticalExamResult() {
   const { sessionId } = useParams();
-  const navigate = useNavigate();
   const location = useLocation();
-  
+  const navigate = useNavigate();
   const [result, setResult] = useState(null);
   const [session, setSession] = useState(null);
   const [exam, setExam] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [verificationStatus, setVerificationStatus] = useState('pending');
-  const [vmDeletionStatus, setVmDeletionStatus] = useState('pending');
-  const [showDetails, setShowDetails] = useState(false);
-
-  // Get result data from location state if available (from the submit process)
-  const resultData = location.state;
+  const [polling, setPolling] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -30,130 +24,81 @@ export default function PracticalResult() {
         setSession(sessionData);
         
         // Load exam data
-        const examData = await authGet(`/api/practical-exams/${sessionData.exam}/`);
-        setExam(examData);
+        if (sessionData.exam) {
+          const examData = await authGet(`/api/practical-exams/${sessionData.exam}/`);
+          setExam(examData);
+        }
         
-        // Try to load result data
-        try {
-          // First check if we have result data passed from the submission
-          if (resultData) {
-            setResult({
-              score: resultData.success ? 100 : 0,
-              total_possible: 100,
-              details: {
-                verification_output: resultData.output,
-                success: resultData.success
-              },
-              created_at: new Date().toISOString()
-            });
-          } else {
-            // If not, try to fetch from API
-            const results = await authGet(`/api/practical-results/?session=${sessionId}`);
-            if (results.length > 0) {
-              setResult(results[0]);
+        // Check if we have a result already
+        if (sessionData.status === 'completed' || sessionData.status === 'failed') {
+          try {
+            const resultData = await authGet(`/api/practical-results/?session=${sessionId}`);
+            if (resultData && resultData.results && resultData.results.length > 0) {
+              setResult(resultData.results[0]);
+              setLoading(false);
+              return;
             }
+          } catch (err) {
+            console.error('Error loading result:', err);
           }
-        } catch (err) {
-          console.log('No result found yet, will verify');
+        }
+        
+        // If no result yet, start polling
+        if (sessionData.status === 'verifying') {
+          setPolling(true);
         }
         
         setLoading(false);
-        
-        // If session is still running or verification hasn't been done, verify it
-        if (sessionData.status === 'running' || sessionData.status === 'starting') {
-          await verifyAndTerminateSession();
-        } else if (sessionData.status === 'completed' || sessionData.status === 'terminated') {
-          // If already completed, check if VM needs to be deleted
-          checkAndDeleteVm();
-        }
-        
       } catch (err) {
-        setError('Failed to load result data: ' + err.message);
+        console.error('Error loading data:', err);
+        setError('Failed to load exam results');
         setLoading(false);
       }
     };
 
     loadData();
-  }, [sessionId, resultData]);
+  }, [sessionId]);
 
-  const verifyAndTerminateSession = async () => {
-    try {
-      setVerificationStatus('in-progress');
-      
-      // Run verification
-      const verificationResponse = await authPost(
-        `/api/practical-sessions/${sessionId}/verify/`, 
-        {}
-      );
-      
-      setVerificationStatus('completed');
-      
-      // Load the updated result
-      const results = await authGet(`/api/practical-results/?session=${sessionId}`);
-      if (results.length > 0) {
-        setResult(results[0]);
-      }
-      
-      // Terminate the VM
-      await terminateVm();
-      
-    } catch (err) {
-      setVerificationStatus('failed');
-      setError('Verification failed: ' + err.message);
-    }
-  };
-
-  const terminateVm = async () => {
-    try {
-      setVmDeletionStatus('in-progress');
-      
-      // Call terminate endpoint
-      await authPost(
-        `/api/practical-sessions/${sessionId}/terminate/`,
-        { reason: 'Exam completed - automatic termination' }
-      );
-      
-      setVmDeletionStatus('completed');
-      
-      // Refresh session data
-      const sessionData = await authGet(`/api/practical-sessions/${sessionId}/`);
-      setSession(sessionData);
-      
-    } catch (err) {
-      setVmDeletionStatus('failed');
-      console.error('VM termination failed:', err);
-    }
-  };
-
-  const checkAndDeleteVm = async () => {
-    // If VM is still running, terminate it
-    if (session && session.status === 'running') {
-      await terminateVm();
-    }
-  };
-
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString();
-  };
-
-  const formatDuration = (start, end) => {
-    if (!start || !end) return 'N/A';
+  useEffect(() => {
+    let intervalId = null;
     
-    const startTime = new Date(start);
-    const endTime = new Date(end);
-    const durationMs = endTime - startTime;
-    const minutes = Math.floor(durationMs / 60000);
-    const seconds = ((durationMs % 60000) / 1000).toFixed(0);
+    if (polling) {
+      intervalId = setInterval(async () => {
+        try {
+          const sessionData = await authGet(`/api/practical-sessions/${sessionId}/`);
+          
+          if (sessionData.status === 'completed' || sessionData.status === 'failed') {
+            // Stop polling
+            setPolling(false);
+            
+            // Load result
+            try {
+              const resultData = await authGet(`/api/practical-results/?session=${sessionId}`);
+              if (resultData && resultData.results && resultData.results.length > 0) {
+                setResult(resultData.results[0]);
+              }
+            } catch (err) {
+              console.error('Error loading result:', err);
+            }
+          }
+        } catch (err) {
+          console.error('Error polling session status:', err);
+        }
+      }, 3000);
+    }
     
-    return `${minutes}:${seconds.padStart(2, '0')}`;
-  };
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [polling, sessionId]);
 
   if (loading) {
     return (
-      <div className="result-container">
-        <div className="result-loading">
+      <div className="practical-result-container">
+        <div className="practical-result-loading">
+          <h2>Loading Exam Results</h2>
           <div className="loading-spinner"></div>
-          <p>Loading exam results...</p>
+          <p>Please wait while we retrieve your exam results...</p>
         </div>
       </div>
     );
@@ -161,157 +106,69 @@ export default function PracticalResult() {
 
   if (error) {
     return (
-      <div className="result-container">
-        <div className="result-error">
+      <div className="practical-result-container">
+        <div className="practical-result-error">
           <h2>Error</h2>
           <p>{error}</p>
-          <button 
-            className="result-back-btn"
-            onClick={() => navigate('/student')}
-          >
-            Return to Dashboard
-          </button>
+          <button onClick={() => navigate('/student')}>Return to Dashboard</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="result-container">
-      <div className="result-header">
-        <h1>Exam Results: {exam?.title}</h1>
-        <button 
-          className="result-back-btn"
-          onClick={() => navigate('/student')}
-        >
+    <div className="practical-result-container">
+      <div className="practical-result-header">
+        <h1>Exam Results: {exam?.title || 'Practical Exam'}</h1>
+        <button className="back-button" onClick={() => navigate('/student')}>
           Return to Dashboard
         </button>
       </div>
 
-      <div className="result-content">
-        <div className="result-summary">
-          <div className="score-display">
-            <div className="score-circle">
-              <span className="score-value">
-                {result ? `${result.score}/${result.total_possible}` : 'N/A'}
-              </span>
+      {polling && (
+        <div className="practical-result-pending">
+          <div className="pending-content">
+            <h2>Verification in Progress</h2>
+            <div className="loading-spinner"></div>
+            <p>Your exam is being verified. This may take a few minutes.</p>
+            <p>You will receive an email with the results once verification is complete.</p>
+          </div>
+        </div>
+      )}
+
+      {result && (
+        <div className="practical-result-content">
+          <div className="result-summary">
+            <h2>Exam Summary</h2>
+            <div className="score-display">
+              <span className="score">{result.score}</span>
+              <span className="total">/{result.total_possible}</span>
             </div>
-            <div className="score-label">Final Score</div>
+            <div className={`status ${session.is_success ? 'passed' : 'failed'}`}>
+              {session.is_success ? 'PASSED' : 'FAILED'}
+            </div>
           </div>
 
           <div className="result-details">
-            <div className="detail-row">
-              <span className="detail-label">Status:</span>
-              <span className={`detail-value status-${session?.status}`}>
-                {session?.status?.toUpperCase()}
-              </span>
-            </div>
-            <div className="detail-row">
-              <span className="detail-label">Started:</span>
-              <span className="detail-value">
-                {session?.start_time ? formatDate(session.start_time) : 'N/A'}
-              </span>
-            </div>
-            <div className="detail-row">
-              <span className="detail-label">Completed:</span>
-              <span className="detail-value">
-                {session?.end_time ? formatDate(session.end_time) : 'N/A'}
-              </span>
-            </div>
-            <div className="detail-row">
-              <span className="detail-label">Duration:</span>
-              <span className="detail-value">
-                {formatDuration(session?.start_time, session?.end_time)}
-              </span>
-            </div>
+            <h3>Detailed Results</h3>
+            <pre>{JSON.stringify(result.details, null, 2)}</pre>
           </div>
-        </div>
 
-        <div className="verification-section">
-          <h2>Verification Results</h2>
-          
-          {verificationStatus === 'pending' && session?.status === 'completed' && (
-            <div className="status-message">
-              <p>Verification was completed during the exam session.</p>
-            </div>
-          )}
-          
-          {verificationStatus === 'in-progress' && (
-            <div className="status-message">
-              <div className="loading-spinner small"></div>
-              <p>Verifying your work...</p>
-            </div>
-          )}
-          
-          {verificationStatus === 'completed' && (
-            <div className="status-message success">
-              <p>✓ Verification completed successfully</p>
-            </div>
-          )}
-          
-          {verificationStatus === 'failed' && (
-            <div className="status-message error">
-              <p>✗ Verification failed</p>
-            </div>
-          )}
-
-          {vmDeletionStatus === 'in-progress' && (
-            <div className="status-message">
-              <div className="loading-spinner small"></div>
-              <p>Cleaning up exam environment...</p>
-            </div>
-          )}
-          
-          {vmDeletionStatus === 'completed' && (
-            <div className="status-message success">
-              <p>✓ Exam environment cleaned up</p>
-            </div>
-          )}
-          
-          {vmDeletionStatus === 'failed' && (
-            <div className="status-message warning">
-              <p>⚠ Exam environment cleanup failed (contact administrator)</p>
-            </div>
-          )}
-
-          {result && result.details && (
-            <div className="verification-output">
-              <button 
-                className="toggle-details-btn"
-                onClick={() => setShowDetails(!showDetails)}
-              >
-                {showDetails ? 'Hide' : 'Show'} Verification Details
-              </button>
-              
-              {showDetails && (
-                <div className="output-content">
-                  <h4>Verification Output:</h4>
-                  <pre className="output-text">
-                    {result.details.verification_output || 'No output captured'}
-                  </pre>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="result-actions">
-          <button 
-            className="result-action-btn primary"
-            onClick={() => navigate('/student/exams')}
-          >
-            View All Exams
-          </button>
-          {session?.status === 'completed' && (
-            <button 
-              className="result-action-btn"
-              onClick={() => window.print()}
-            >
+          <div className="result-actions">
+            <button onClick={() => window.print()} className="print-button">
               Print Results
             </button>
-          )}
+          </div>
         </div>
-      </div>
+      )}
+
+      {!polling && !result && (
+        <div className="practical-result-error">
+          <h2>No Results Available</h2>
+          <p>No results could be found for this exam session.</p>
+          <button onClick={() => navigate('/student')}>Return to Dashboard</button>
+        </div>
+      )}
     </div>
   );
 }
