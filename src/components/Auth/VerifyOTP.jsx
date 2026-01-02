@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authPost } from '../../services/api';
 import { FiMail, FiClock, FiArrowLeft, FiLock, FiCheck } from 'react-icons/fi';
-import { useAuth } from '../../context/authContext';
-import '../CSS/OTP.css';
+import { useAuth } from '../../context/AuthContext';
+import '../../styles/CSS/OTP.css';
 
 export default function OTPPage() {
   const navigate = useNavigate();

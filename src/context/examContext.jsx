@@ -1,83 +1,162 @@
-import React, { createContext, useState, useContext } from 'react';
-import { authGet, authPost } from '../services/api';
+import React, { createContext, useState, useContext, useCallback } from 'react';
+import { mcqService } from '../services/mcqService';
 
 const ExamContext = createContext();
 
-export const ExamProvider = ({ children }) => {
-  const [exams, setExams] = useState([]);
-  const [sessions, setSessions] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+export const useExam = () => {
+  const context = useContext(ExamContext);
+  if (!context) {
+    throw new Error('useExam must be used within an ExamProvider');
+  }
+  return context;
+};
 
-  const fetchExams = async () => {
-    setLoading(true);
-    setError(null);
+export const ExamProvider = ({ children }) => {
+  const [currentExam, setCurrentExam] = useState(null);
+  const [currentSession, setCurrentSession] = useState(null);
+  const [answers, setAnswers] = useState({});
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [timer, setTimer] = useState(null);
+
+  // Start timer for exam
+  const startTimer = useCallback((duration) => {
+    if (timer) {
+      clearInterval(timer);
+    }
+    
+    setTimeLeft(duration * 60); // Convert minutes to seconds
+    
+    const newTimer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(newTimer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
+    setTimer(newTimer);
+    
+    return () => {
+      clearInterval(newTimer);
+    };
+  }, [timer]);
+
+  // Stop timer
+  const stopTimer = useCallback(() => {
+    if (timer) {
+      clearInterval(timer);
+      setTimer(null);
+    }
+  }, [timer]);
+
+  // Format time display
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Save answer
+  const saveAnswer = useCallback((questionId, selectedAnswers) => {
+    setAnswers(prev => ({
+      ...prev,
+      [questionId]: selectedAnswers,
+    }));
+  }, []);
+
+  // Clear answers
+  const clearAnswers = useCallback(() => {
+    setAnswers({});
+  }, []);
+
+  // Start exam session
+  const startExamSession = async (examId) => {
     try {
-      // Fetch both types of exams
-      const [strictExams, practicalExams] = await Promise.all([
-        authGet('/api/exams/'),
-        authGet('/api/practical-exams/')
-      ]);
+      const session = await mcqService.validateSession(examId);
+      setCurrentSession(session);
+      setCurrentExam(session.exam);
       
-      // Add mode to each exam
-      const strictWithMode = strictExams.map(exam => ({ ...exam, mode: 'strict' }));
-      const practicalWithMode = practicalExams.map(exam => ({ ...exam, mode: 'practical' }));
+      // Load saved answers if any
+      if (session.answers) {
+        const savedAnswers = {};
+        session.answers.forEach(answer => {
+          savedAnswers[answer.question] = answer.selected_answers;
+        });
+        setAnswers(savedAnswers);
+      }
       
-      setExams([...strictWithMode, ...practicalWithMode]);
-    } catch (err) {
-      setError(err.message || 'Failed to load exams');
-    } finally {
-      setLoading(false);
+      return session;
+    } catch (error) {
+      throw error;
     }
   };
 
-  const startExam = async (exam) => {
+  // Submit exam
+  const submitExam = async (sessionId) => {
     try {
-      let endpoint, payload = { exam: exam.id };
+      const answersArray = Object.entries(answers).map(([questionId, selectedAnswers]) => ({
+        question: parseInt(questionId),
+        selected_answers: Array.isArray(selectedAnswers) ? selectedAnswers.join(',') : selectedAnswers,
+      }));
       
-      if (exam.mode === 'strict') {
-        endpoint = '/api/sessions/';
-      } else if (exam.mode === 'practical') {
-        endpoint = '/api/practical-sessions/';
-      } else {
-        throw new Error('Invalid exam mode');
-      }
-
-      const response = await authPost(endpoint, payload);
-      return response;
-    } catch (err) {
-      let errorMsg = 'Failed to start exam';
-      let details = '';
+      const data = {
+        answers: answersArray,
+        elapsed_time: currentExam.duration * 60 - timeLeft,
+      };
       
-      if (err.response) {
-        if (err.response.data) {
-          errorMsg = err.response.data.error || errorMsg;
-          details = err.response.data.details || 
-                    err.response.data.detail || 
-                    JSON.stringify(err.response.data);
-        } else {
-          details = `Status: ${err.response.status} ${err.response.statusText}`;
-        }
-      } else if (err.message) {
-        details = err.message;
-      }
+      const result = await mcqService.submitExam(sessionId, data);
       
-      throw new Error(`${errorMsg}: ${details}`);
+      // Clean up
+      stopTimer();
+      setCurrentExam(null);
+      setCurrentSession(null);
+      clearAnswers();
+      
+      return result;
+    } catch (error) {
+      throw error;
     }
+  };
+
+  // Save progress
+  const saveProgress = async (sessionId) => {
+    try {
+      const answersArray = Object.entries(answers).map(([questionId, selectedAnswers]) => ({
+        question: parseInt(questionId),
+        selected_answers: Array.isArray(selectedAnswers) ? selectedAnswers.join(',') : selectedAnswers,
+      }));
+      
+      const data = {
+        answers: answersArray,
+        elapsed_time: currentExam.duration * 60 - timeLeft,
+      };
+      
+      await mcqService.saveProgress(sessionId, data);
+    } catch (error) {
+      console.error('Failed to save progress:', error);
+    }
+  };
+
+  const value = {
+    currentExam,
+    currentSession,
+    answers,
+    timeLeft,
+    formatTime,
+    startTimer,
+    stopTimer,
+    saveAnswer,
+    clearAnswers,
+    startExamSession,
+    submitExam,
+    saveProgress,
   };
 
   return (
-    <ExamContext.Provider value={{
-      exams,
-      sessions,
-      loading,
-      error,
-      fetchExams,
-      startExam
-    }}>
+    <ExamContext.Provider value={value}>
       {children}
     </ExamContext.Provider>
   );
 };
-
-export const useExam = () => useContext(ExamContext);

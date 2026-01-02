@@ -1,4 +1,3 @@
-// src/App.js
 import React from "react";
 import {
   BrowserRouter as Router,
@@ -7,59 +6,42 @@ import {
   Navigate,
   useLocation,
 } from "react-router-dom";
-import { AuthProvider, useAuth } from "./context/authContext";
-import { ExamProvider } from "./context/examContext";
 
-// Components
-import Header from "./components/Assest/Header";
-import Footer from "./components/Assest/Footer";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { ExamProvider } from "./context/ExamContext";
 
-// Auth
+/* Layout */
+import Header from "./components/Shared/Header";
+import Footer from "./components/Shared/Footer";
+
+/* Auth */
 import Login from "./components/Auth/Login";
 import PasswordReset from "./components/Auth/PasswordReset";
 import ForcePasswordChange from "./components/Auth/ForcePasswordChange";
 import VerifyOTP from "./components/Auth/VerifyOTP";
 
-// Admin
-import Dashboard from "./components/Admin/Dashboard";
-import AddStudent from "./components/Admin/AddStudent";
-import StudentList from "./components/Admin/AdminStudentList";
-import QuestionUpload from "./components/Admin/QuestionUpload";
-import ExamForm from "./components/Admin/ExamForm";
-import AdminExamList from "./components/Admin/AdminExamList";
-import AdminResultList from "./components/Admin/AdminResultList";
-import PracticalTaskList from "./components/Admin/PracticalTaskList";
-import PracticalTaskForm from "./components/Admin/PracticalTaskForm"; 
+/* Admin */
+import AdminDashboard from "./components/Admin/Core/AdminDashboard";
+import AddStudent from "./components/Admin/Core/AddStudent";
+import StudentList from "./components/Admin/Core/StudentList";
+import SubjectForm from "./components/Admin/Core/SubjectForm";
+import SubjectList from "./components/Admin/Core/SubjectList";
+import QuestionUpload from "./components/Admin/MCQ/QuestionUpload";
+import ExamForm from "./components/Admin/MCQ/ExamForm";
+import AdminExamList from "./components/Admin/MCQ/AdminExamList";
+import AdminResultList from "./components/Admin/MCQ/AdminResultList";
 
-// Student
-import ExamList from "./components/Student/ExamList";
-import Exam from "./components/Student/Exam";
-import Result from "./components/Student/Result";
-import ResultList from "./components/Student/ResultList";
-import ResultDetail from "./components/Student/ResultDetail";
-import PracticalExam from './components/Student/PracticalExam';
-
+/* Student */
+import StudentDashboard from "./components/Student/MCQ/StudentDashboard";
+import ExamList from "./components/Student/MCQ/ExamList";
+import Exam from "./components/Student/MCQ/Exam";
+import ResultList from "./components/Student/MCQ/ResultList";
+import ResultDetail from "./components/Student/MCQ/ResultDetail";
 
 import "./App.css";
 
-// Debug: Logs route + auth status
-const RouteDebugger = () => {
-  const location = useLocation();
-  const { user, loading } = useAuth();
-  React.useEffect(() => {
-    console.log(
-      "Route:",
-      location.pathname,
-      "User:",
-      user,
-      "Loading:",
-      loading
-    );
-  }, [location, user, loading]);
-  return null;
-};
+/* ================= AUTH GUARDS ================= */
 
-// Route for public pages (login, reset)
 const AuthRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
@@ -69,13 +51,13 @@ const AuthRoute = ({ children }) => {
     if (user.force_password_change) {
       return <Navigate to="/change-password" replace />;
     }
+    return <Navigate to={user.role === "admin" ? "/admin" : "/student"} replace />;
   }
 
   return children;
 };
 
-// Route for protected pages
-const ProtectedRoute = ({ element, allowedRoles = [] }) => {
+const ProtectedRoute = ({ element, roles }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
 
@@ -89,12 +71,14 @@ const ProtectedRoute = ({ element, allowedRoles = [] }) => {
     return <Navigate to="/change-password" replace />;
   }
 
-  if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/access-denied" replace />;
+  if (roles && !roles.includes(user.role)) {
+    return <Navigate to="/login" replace />;
   }
 
   return element;
 };
+
+/* ================= APP ================= */
 
 function App() {
   return (
@@ -102,10 +86,9 @@ function App() {
       <ExamProvider>
         <Router>
           <Header />
-          <RouteDebugger />
           <div className="main-content">
             <Routes>
-              {/* Public routes */}
+              {/* ===== PUBLIC ===== */}
               <Route
                 path="/login"
                 element={
@@ -122,35 +105,26 @@ function App() {
                   </AuthRoute>
                 }
               />
+              <Route path="/verify-otp" element={<VerifyOTP />} />
 
-              {/* Auth routes grouped */}
+              {/* ===== FORCE PASSWORD ===== */}
               <Route
                 path="/change-password"
                 element={
                   <ProtectedRoute
                     element={<ForcePasswordChange />}
-                    allowedRoles={["admin", "student"]}
+                    roles={["admin", "student"]}
                   />
                 }
               />
 
-              {/* <Route
-                path="/verify-otp"
-                element={
-                  <ProtectedRoute
-                    element={<VerifyOTP />}
-                    allowedRoles={["student"]}
-                  />
-                }
-              /> */}
-
-              {/* Admin routes */}
+              {/* ===== ADMIN ===== */}
               <Route
                 path="/admin"
                 element={
                   <ProtectedRoute
-                    element={<Dashboard />}
-                    allowedRoles={["admin"]}
+                    element={<AdminDashboard />}
+                    roles={["admin"]}
                   />
                 }
               />
@@ -159,7 +133,7 @@ function App() {
                 element={
                   <ProtectedRoute
                     element={<AddStudent />}
-                    allowedRoles={["admin"]}
+                    roles={["admin"]}
                   />
                 }
               />
@@ -168,16 +142,34 @@ function App() {
                 element={
                   <ProtectedRoute
                     element={<StudentList />}
-                    allowedRoles={["admin"]}
+                    roles={["admin"]}
                   />
                 }
               />
               <Route
-                path="/admin/upload"
+                path="/admin/subjects"
+                element={
+                  <ProtectedRoute
+                    element={<SubjectList />}
+                    roles={["admin"]}
+                  />
+                }
+              />
+              <Route
+                path="/admin/add-subject"
+                element={
+                  <ProtectedRoute
+                    element={<SubjectForm />}
+                    roles={["admin"]}
+                  />
+                }
+              />
+              <Route
+                path="/admin/upload-questions"
                 element={
                   <ProtectedRoute
                     element={<QuestionUpload />}
-                    allowedRoles={["admin"]}
+                    roles={["admin"]}
                   />
                 }
               />
@@ -186,7 +178,7 @@ function App() {
                 element={
                   <ProtectedRoute
                     element={<ExamForm isEdit={false} />}
-                    allowedRoles={["admin"]}
+                    roles={["admin"]}
                   />
                 }
               />
@@ -195,7 +187,7 @@ function App() {
                 element={
                   <ProtectedRoute
                     element={<AdminExamList />}
-                    allowedRoles={["admin"]}
+                    roles={["admin"]}
                   />
                 }
               />
@@ -204,121 +196,68 @@ function App() {
                 element={
                   <ProtectedRoute
                     element={<ExamForm isEdit={true} />}
-                    allowedRoles={["admin"]}
+                    roles={["admin"]}
                   />
                 }
               />
               <Route
-                path="/admin/results-list"
+                path="/admin/results"
                 element={
                   <ProtectedRoute
                     element={<AdminResultList />}
-                    allowedRoles={["admin"]}
+                    roles={["admin"]}
                   />
                 }
               />
 
-              <Route
-                path="/admin/task-list"
-                element={
-                  <ProtectedRoute
-                    element={<PracticalTaskList  />}
-                    allowedRoles={["admin"]}
-                  />
-                }
-              />
-
-              <Route
-                path="/admin/add-task"
-                element={
-                  <ProtectedRoute
-                    element={<PracticalTaskForm   />}
-                    allowedRoles={["admin"]}
-                  />
-                }
-              />
-
-              <Route
-                path="/admin/edit-task/:id"
-                element={
-                  <ProtectedRoute
-                    element={<PracticalTaskForm isEdit={true}  />}
-                    allowedRoles={["admin"]}
-                  />
-                }
-              />
-
-              {/* Student routes */}
+              {/* ===== STUDENT ===== */}
               <Route
                 path="/student"
                 element={
                   <ProtectedRoute
-                    element={<Dashboard />}
-                    allowedRoles={["student"]}
+                    element={<StudentDashboard />}
+                    roles={["student"]}
                   />
                 }
               />
               <Route
-                path="/student/exam-list"
+                path="/student/exams"
                 element={
                   <ProtectedRoute
                     element={<ExamList />}
-                    allowedRoles={["student"]}
+                    roles={["student"]}
                   />
                 }
               />
               <Route
-                path="/student/exam/:examId"
+                path="/student/exam/:sessionId"
                 element={
                   <ProtectedRoute
                     element={<Exam />}
-                    allowedRoles={["student"]}
+                    roles={["student"]}
                   />
                 }
               />
-
               <Route
-                path="/student/results/:sessionId"
-                element={
-                  <ProtectedRoute
-                    element={<Result />}
-                    allowedRoles={["student"]}
-                  />
-                }
-              />
-              <Route 
-                path="/student/results/" 
+                path="/student/results"
                 element={
                   <ProtectedRoute
                     element={<ResultList />}
-                    allowedRoles={["student"]}
+                    roles={["student"]}
                   />
-                } 
+                }
               />
-
               <Route
                 path="/student/results/:sessionId"
                 element={
                   <ProtectedRoute
-                    element={<Result />}
-                    allowedRoles={["student"]}
-                  />
-                }
-              />
-              
-              <Route
-                path="/student/practical/:sessionId"
-                element={
-                  <ProtectedRoute
-                    element={<PracticalExam />}
-                    allowedRoles={["student"]}
+                    element={<ResultDetail />}
+                    roles={["student"]}
                   />
                 }
               />
 
-              
-
-              {/* Default routes */}
+              {/* ===== DEFAULT ===== */}
               <Route path="/" element={<Navigate to="/login" replace />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

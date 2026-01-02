@@ -1,90 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { logoutUser } from '../services/api';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { authService } from '../services/authService';
+import { mcqService } from '../services/mcqService';
 
 const AuthContext = createContext();
-
-const getLocalStorageUser = () => {
-  try {
-    return JSON.parse(localStorage.getItem('user')) || null;
-  } catch {
-    return null;
-  }
-};
-
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(getLocalStorageUser());
-  const [loading, setLoading] = useState(true);
-
-  const login = useCallback((userData) => {
-    // Store all authentication data
-    localStorage.setItem('access_token', userData.token);
-    localStorage.setItem('refresh_token', userData.refresh_token);
-    localStorage.setItem('user', JSON.stringify(userData));
-    setUser(userData);
-  }, []);
-
-  const updateUser = useCallback((newData) => {
-    setUser(prevUser => {
-      const updatedUser = { ...prevUser, ...newData };
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      return updatedUser;
-    });
-  }, []);
-
-  const logout = useCallback(async () => {
-    try {
-      // Attempt server-side logout if possible
-      await logoutUser();
-    } catch (error) {
-      console.error('Logout failed:', error);
-    } finally {
-      // Clear client-side authentication state
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      localStorage.removeItem('user');
-      setUser(null);
-    }
-  }, []);
-
-  useEffect(() => {
-    const verifyAuthState = async () => {
-      try {
-        const accessToken = localStorage.getItem('access_token');
-        const userData = getLocalStorageUser();
-        
-        if (accessToken && userData) {
-          // Add token validation check here in production
-          setUser(userData);
-        } else {
-          // Clear invalid state
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
-          localStorage.removeItem('user');
-          setUser(null);
-        }
-      } catch (error) {
-        console.error('Auth verification failed:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    verifyAuthState();
-  }, []);
-
-  return (
-    <AuthContext.Provider value={{ 
-      user, 
-      login, 
-      logout, 
-      updateUser, 
-      loading,
-      isAuthenticated: !!user
-    }}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -92,4 +10,108 @@ export const useAuth = () => {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
+};
+
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    // Check if user is already logged in
+    const currentUser = authService.getCurrentUser();
+    if (currentUser) {
+      setUser(currentUser);
+    }
+    setLoading(false);
+  }, []);
+
+  const login = async (credentials) => {
+    try {
+      setError(null);
+      const response = await authService.login(credentials);
+      const userData = {
+        id: response.id,
+        email: response.email,
+        username: response.username,
+        role: response.role,
+        first_name: response.first_name,
+        last_name: response.last_name,
+        force_password_change: response.force_password_change,
+        is_verified: response.is_verified,
+      };
+      setUser(userData);
+      return response;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
+  const logout = () => {
+    authService.logout();
+    setUser(null);
+  };
+
+  const changePassword = async (data) => {
+    try {
+      const response = await authService.changePassword(data);
+      if (user) {
+        setUser({ ...user, force_password_change: false });
+      }
+      return response;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
+  const sendOTP = async () => {
+    try {
+      return await authService.sendOTP();
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
+  const verifyOTP = async (otp) => {
+    try {
+      const response = await authService.verifyOTP(otp);
+      if (user) {
+        setUser({ ...user, is_verified: true });
+      }
+      return response;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
+  const updateUserProfile = (updates) => {
+    if (user) {
+      setUser({ ...user, ...updates });
+    }
+  };
+
+  const value = {
+    user,
+    loading,
+    error,
+    login,
+    logout,
+    changePassword,
+    sendOTP,
+    verifyOTP,
+    updateUserProfile,
+    isAuthenticated: authService.isAuthenticated(),
+    isAdmin: authService.isAdmin(),
+    isStudent: authService.isStudent(),
+  };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
 };

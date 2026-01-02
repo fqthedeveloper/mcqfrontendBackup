@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { changePassword } from '../../services/auth';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/authContext';
-import '../CSS/ChangePassword.css';
+import { useAuth } from '../../context/AuthContext';
+import '../../styles/CSS/ChangePassword.css';
 
 
 export default function ChangePasswordPage() {

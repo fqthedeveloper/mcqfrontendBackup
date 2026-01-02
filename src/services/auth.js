@@ -85,11 +85,11 @@ export const logoutUser = () => {
 };
 
 export const resetPassword = async (email) => {
-  return post('/api/reset-password/', { email });
+  return post('/mcq/reset-password/', { email });
 };
 
 export const changePassword = async (newPassword, confirmPassword) => {
-  return authPost('/api/change-password/', {
+  return authPost('/mcq/change-password/', {
     new_password: newPassword,
     confirm_password: confirmPassword,
   });

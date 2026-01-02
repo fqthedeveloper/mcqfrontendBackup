@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/authContext";
-import "../CSS/Login.css";
+import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+import "../../styles/CSS/Login.css";
 
 export default function Login() {
   const [usernameOrEmail, setUsernameOrEmail] = useState("");
@@ -12,7 +12,7 @@ export default function Login() {
   const { login } = useAuth();
 
   useEffect(() => {
-    document.title = "Login Page";
+    document.title = "Login - Exam System";
   }, []);
 
   const handleSubmit = async (e) => {
@@ -21,58 +21,23 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/login/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username_or_email: usernameOrEmail,
-          password: password,
-        }),
+      const response = await login({
+        username_or_email: usernameOrEmail,
+        password: password,
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        // Handle field-specific errors
-        if (data.username_or_email || data.password) {
-          setErrors({
-            usernameOrEmail: data.username_or_email,
-            password: data.password
-          });
-        } else {
-          // Handle general errors
-          setErrors({
-            nonField: data.error || "Login failed. Please try again."
-          });
-        }
-        setLoading(false);
-        return;
-      }
-
-      const user = {
-        id: data.id,
-        username: data.username,
-        email: data.email,
-        role: data.role || "student",
-        token: data.token,
-        force_password_change: data.force_password_change || false,
-      };
-
-      login(user);
-
-      if (user.force_password_change) {
+      if (response.force_password_change) {
         navigate("/change-password", { replace: true });
-      } else if (user.role === "admin") {
+      } else if (response.role === "admin") {
         navigate("/admin", { replace: true });
       } else {
         navigate("/student", { replace: true });
       }
     } catch (err) {
       setErrors({
-        nonField: "Network error. Please check your connection."
+        nonField: err.message || "Login failed. Please check your credentials."
       });
+    } finally {
       setLoading(false);
     }
   };
@@ -82,57 +47,68 @@ export default function Login() {
       <div className="login-card">
         <div className="login-header">
           <div className="logo">
-            <div className="logo-circle">IRT</div>
-            <h2>MCQ Application</h2>
+            <div className="logo-circle">
+              <i className="fas fa-graduation-cap"></i>
+            </div>
+            <h2>Exam Management System</h2>
           </div>
           <h1>Welcome Back</h1>
           <p>Sign in to continue to your account</p>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
-          {errors.nonField && <div className="error-message">{errors.nonField}</div>}
-
-          <div className="input-group">
-            <label htmlFor="usernameOrEmail">Email or Username</label>
-            <div className="input-with-icon">
-              <i className="fas fa-user"></i>
-              <input
-                type="text"
-                id="usernameOrEmail"
-                placeholder="Enter your email or username"
-                value={usernameOrEmail}
-                onChange={(e) => setUsernameOrEmail(e.target.value)}
-                required
-                className={errors.usernameOrEmail ? "error" : ""}
-              />
+          {errors.nonField && (
+            <div className="alert alert-error">
+              <i className="fas fa-exclamation-circle"></i>
+              {errors.nonField}
             </div>
-            {errors.usernameOrEmail && 
-              <div className="field-error">{errors.usernameOrEmail}</div>}
+          )}
+
+          <div className="form-group">
+            <label htmlFor="usernameOrEmail">
+              <i className="fas fa-user"></i> Email or Username
+            </label>
+            <input
+              type="text"
+              id="usernameOrEmail"
+              placeholder="Enter your email or username"
+              value={usernameOrEmail}
+              onChange={(e) => setUsernameOrEmail(e.target.value)}
+              required
+              className={errors.usernameOrEmail ? "error" : ""}
+            />
+            {errors.usernameOrEmail && (
+              <div className="field-error">{errors.usernameOrEmail}</div>
+            )}
           </div>
 
-          <div className="input-group">
-            <label htmlFor="password">Password</label>
-            <div className="input-with-icon">
-              <i className="fas fa-lock"></i>
-              <input
-                type="password"
-                id="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className={errors.password ? "error" : ""}
-              />
-            </div>
-            {errors.password && 
-              <div className="field-error">{errors.password}</div>}
+          <div className="form-group">
+            <label htmlFor="password">
+              <i className="fas fa-lock"></i> Password
+            </label>
+            <input
+              type="password"
+              id="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className={errors.password ? "error" : ""}
+            />
+            {errors.password && (
+              <div className="field-error">{errors.password}</div>
+            )}
           </div>
 
-          <div className="forgot-password">
-            <a href="/password-reset">Forgot Password?</a>
+          <div className="form-options">
+            
+            
+            <Link to="/password-reset" className="forgot-password">
+              Forgot Password?
+            </Link>
           </div>
 
-          <button type="submit" className="login-button" disabled={loading}>
+          <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
             {loading ? (
               <>
                 <i className="fas fa-spinner fa-spin"></i> Signing In...
@@ -140,11 +116,12 @@ export default function Login() {
             ) : (
               "Sign In"
             )}
+            
           </button>
+        
         </form>
-
-        <div className="login-footer"></div>
       </div>
+
     </div>
   );
 }
