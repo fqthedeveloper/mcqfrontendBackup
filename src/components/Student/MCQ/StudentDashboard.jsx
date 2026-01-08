@@ -4,17 +4,30 @@ import { authGet } from "../../../services/api";
 
 export default function StudentDashboard() {
   const navigate = useNavigate();
+
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [welcomeText, setWelcomeText] = useState("");
 
   useEffect(() => {
     loadProfile();
+    document.title = "Student Dashboard";
   }, []);
 
   const loadProfile = async () => {
     try {
       const data = await authGet("/mcq/my-profile/");
       setProfile(data);
+
+      const storageKey = `student_first_login_${data.username}`;
+      const isFirstLogin = !localStorage.getItem(storageKey);
+
+      if (isFirstLogin) {
+        setWelcomeText("Welcome");
+        localStorage.setItem(storageKey, "true");
+      } else {
+        setWelcomeText("Welcome back");
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -23,100 +36,167 @@ export default function StudentDashboard() {
   };
 
   if (loading) {
-    return <div className="student-bg"><p className="loading">Loading...</p></div>;
+    return (
+      <div className="student-bg center">
+        <p className="loading">Loading dashboard...</p>
+      </div>
+    );
   }
 
   return (
     <div className="student-bg">
       <div className="student-dashboard">
-        <h1>Student Dashboard</h1>
-        <p className="welcome">
-          Welcome, <strong>{profile.first_name || profile.username}</strong>
-        </p>
+        {/* HEADER */}
+        <div className="header">
+          <h1>Student Dashboard</h1>
+          <p className="welcome">
+            {welcomeText},&nbsp;
+            <strong>
+              {profile.full_name}
+            </strong>
+          </p>
+        </div>
 
         {/* PROFILE CARD */}
-        <div className="card">
+        <div className="profile-card">
           <h2>My Profile</h2>
-          <p><strong>Email:</strong> {profile.email}</p>
-          <p><strong>Username:</strong> {profile.username}</p>
-          <p>
-            <strong>Status:</strong>{" "}
-            <span className={profile.is_verified ? "verified" : "not-verified"}>
-              {profile.is_verified ? "Verified" : "Not Verified"}
-            </span>
-          </p>
+
+          <div className="profile-grid">
+            <div>
+              <span>Email</span>
+              <p>{profile.email}</p>
+            </div>
+
+            <div>
+              <span>Username</span>
+              <p>{profile.username}</p>
+            </div>
+
+            <div>
+              <span>Status</span>
+              <p className={profile.is_verified ? "verified" : "not-verified"}>
+                {profile.is_verified ? "Verified" : "Not Verified"}
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* ACTION CARDS */}
         <div className="card-grid">
-          <div className="action-card" onClick={() => navigate("/student/exams")}>
-            📘
-            <h3>Exam List</h3>
+          <div
+            className="action-card"
+            onClick={() => navigate("/student/exams")}
+          >
+            <div className="icon">📘</div>
+            <h3>Exams</h3>
             <p>View & start your exams</p>
           </div>
 
-          <div className="action-card" onClick={() => navigate("/student/results")}>
-            📊
-            <h3>Exam Results</h3>
-            <p>Check your scores</p>
+          <div
+            className="action-card"
+            onClick={() => navigate("/student/results")}
+          >
+            <div className="icon">📊</div>
+            <h3>Results</h3>
+            <p>Check exam scores</p>
           </div>
 
-          <div className="action-card" onClick={() => navigate("/student/profile")}>
-            👤
+          <div
+            className="action-card"
+            onClick={() => navigate("/student/profile")}
+          >
+            <div className="icon">👤</div>
             <h3>Profile</h3>
-            <p>View account details</p>
+            <p>Account details</p>
           </div>
         </div>
       </div>
 
-      {/* STYLES */}
+      {/* ================= STYLES ================= */}
       <style>{`
+        * {
+          box-sizing: border-box;
+        }
+
         .student-bg {
           min-height: 100vh;
           background: linear-gradient(135deg, #2575fc, #6a11cb);
+          padding: 20px;
           display: flex;
           justify-content: center;
           align-items: flex-start;
-          padding: 40px 16px;
+        }
+
+        .student-bg.center {
+          align-items: center;
         }
 
         .student-dashboard {
           width: 100%;
-          max-width: 900px;
-          background: rgba(255,255,255,0.95);
-          border-radius: 16px;
-          padding: 32px;
-          box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+          max-width: 1100px;
+          background: rgba(255, 255, 255, 0.97);
+          border-radius: 18px;
+          padding: 28px;
+          box-shadow: 0 25px 60px rgba(0, 0, 0, 0.18);
+        }
+
+        /* HEADER */
+        .header {
+          margin-bottom: 24px;
         }
 
         h1 {
-          margin-top: 0;
+          margin: 0;
           font-size: 28px;
         }
 
         .welcome {
-          color: #555;
-          margin-bottom: 24px;
+          margin-top: 6px;
+          color: #444;
+          font-size: 16px;
         }
 
-        .card {
+        /* PROFILE CARD */
+        .profile-card {
           background: #fff;
+          border-radius: 14px;
           padding: 20px;
-          border-radius: 12px;
-          box-shadow: 0 8px 20px rgba(0,0,0,0.06);
-          margin-bottom: 24px;
+          margin-bottom: 28px;
+          box-shadow: 0 10px 25px rgba(0,0,0,.08);
+        }
+
+        .profile-card h2 {
+          margin-top: 0;
+          font-size: 20px;
+          margin-bottom: 14px;
+        }
+
+        .profile-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 16px;
+        }
+
+        .profile-grid span {
+          font-size: 13px;
+          color: #777;
+        }
+
+        .profile-grid p {
+          margin: 4px 0 0;
+          font-weight: 600;
+          color: #222;
         }
 
         .verified {
-          color: green;
-          font-weight: 600;
+          color: #16a34a;
         }
 
         .not-verified {
-          color: red;
-          font-weight: 600;
+          color: #dc2626;
         }
 
+        /* ACTION CARDS */
         .card-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -125,17 +205,20 @@ export default function StudentDashboard() {
 
         .action-card {
           background: linear-gradient(135deg, #f8fafc, #eef2ff);
-          border-radius: 14px;
-          padding: 24px;
+          border-radius: 16px;
+          padding: 26px;
           cursor: pointer;
           text-align: center;
-          font-size: 32px;
           transition: all 0.3s ease;
-          box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+          box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        .action-card .icon {
+          font-size: 36px;
         }
 
         .action-card h3 {
-          margin: 12px 0 6px;
+          margin: 14px 0 6px;
           font-size: 18px;
         }
 
@@ -145,13 +228,33 @@ export default function StudentDashboard() {
         }
 
         .action-card:hover {
-          transform: translateY(-6px);
-          box-shadow: 0 14px 30px rgba(0,0,0,0.15);
+          transform: translateY(-8px);
+          box-shadow: 0 18px 40px rgba(0,0,0,0.18);
         }
 
+        /* LOADING */
         .loading {
-          color: #fff;
           font-size: 18px;
+          color: #fff;
+        }
+
+        /* MOBILE */
+        @media (max-width: 600px) {
+          .student-dashboard {
+            padding: 20px;
+          }
+
+          h1 {
+            font-size: 24px;
+          }
+
+          .action-card {
+            padding: 20px;
+          }
+
+          .action-card .icon {
+            font-size: 30px;
+          }
         }
       `}</style>
     </div>

@@ -11,7 +11,7 @@ export default function StudentExamList() {
   useEffect(() => {
     const fetchExamHistory = async () => {
       try {
-        const data = await authGet('/api/results/');
+        const data = await authGet('/mcq/results/');
         setResults(data.results || data);
       } catch (err) {
         console.error('Error fetching exam history:', err);

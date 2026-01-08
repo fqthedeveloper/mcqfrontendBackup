@@ -1,486 +1,425 @@
-import React, { useState, useEffect } from "react";
-import { authGet, authPost, authPostFormData } from "../../../services/api";
-import { useAuth } from "../../../context/AuthContext";
+import React, { useEffect, useState } from "react";
+import Swal from "sweetalert2";
 import {
-  FaFileExcel,
-  FaDownload,
   FaCloudUploadAlt,
   FaPlus,
   FaCheckCircle,
-  FaTimes,
-  FaInfoCircle
+  FaFileExcel,
+  FaDownload,
 } from "react-icons/fa";
-import Swal from "sweetalert2";
-import "../../../styles/CSS/Questionupload.css";
+import { authGet, authPost, authPostFormData } from "../../../services/api";
 
-const QuestionUpload = () => {
-  const [file, setFile] = useState(null);
-  const [fileName, setFileName] = useState("");
-  const [showSingleForm, setShowSingleForm] = useState(false);
+/* ================= SAFE NORMALIZER ================= */
+const normalizeArray = (data) =>
+  Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
+
+export default function AdminQuestionManager() {
   const [subjects, setSubjects] = useState([]);
-  const [isMulti, setIsMulti] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [isAdding, setIsAdding] = useState(false);
-  
-  const [singleQuestion, setSingleQuestion] = useState({
-    subject_id: "",
+  const [mode, setMode] = useState("bulk");
+  const [loading, setLoading] = useState(false);
+
+  /* BULK */
+  const [file, setFile] = useState(null);
+  const [bulkSubject, setBulkSubject] = useState("");
+
+  /* SINGLE */
+  const [multi, setMulti] = useState(false);
+  const [form, setForm] = useState({
+    subject: "",
     text: "",
     option_a: "",
     option_b: "",
     option_c: "",
     option_d: "",
-    correct_answer: "A",
     correct_answers: [],
+    correct_answer: "A",
     marks: 1,
     explanation: "",
   });
 
-  const { token } = useAuth();
-
+  /* ================= LOAD SUBJECTS ================= */
   useEffect(() => {
-    document.title = "Upload Questions";
-    fetchSubjects();
+    loadSubjects();
+    document.title = "Question Upload - MCQ Admin";
   }, []);
 
-  const fetchSubjects = async () => {
-    setIsLoading(true);
+  const loadSubjects = async () => {
     try {
-      const response = await authGet("/api/subjects/");
-      setSubjects(Array.isArray(response) ? response : []);
-    } catch (error) {
-      showError("Failed to load subjects", error);
-    } finally {
-      setIsLoading(false);
+      const res = await authGet("/mcq/subjects/");
+      setSubjects(normalizeArray(res));
+    } catch {
+      Swal.fire("Error", "Failed to load subjects", "error");
     }
   };
 
-  const handleInputChange = (e) => {
+  /* ================= HELPERS ================= */
+
+  const handleChange = (e) => {
     const { name, value } = e.target;
-    setSingleQuestion(prev => ({ ...prev, [name]: value }));
+    setForm((p) => ({ ...p, [name]: value }));
   };
 
-  const handleFileChange = (e) => {
-    if (e.target.files.length > 0) {
-      const selectedFile = e.target.files[0];
-      setFile(selectedFile);
-      setFileName(selectedFile.name);
-    }
-  };
-
-  const handleMultiToggle = () => {
-    setIsMulti(!isMulti);
-    setSingleQuestion(prev => ({
-      ...prev,
-      correct_answer: "A",
-      correct_answers: [],
+  const toggleCorrect = (opt) => {
+    setForm((p) => ({
+      ...p,
+      correct_answers: p.correct_answers.includes(opt)
+        ? p.correct_answers.filter((x) => x !== opt)
+        : [...p.correct_answers, opt],
     }));
   };
 
-  const handleMultiCorrectAnswerChange = (e) => {
-    const { value, checked } = e.target;
-    setSingleQuestion(prev => {
-      const updatedAnswers = checked
-        ? [...prev.correct_answers, value]
-        : prev.correct_answers.filter(ans => ans !== value);
-      return { ...prev, correct_answers: updatedAnswers };
-    });
-  };
+  /* ================= SINGLE SUBMIT ================= */
 
-  const handleDownload = async () => {
-    try {
-      const response = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/questions/download_format/`,
-        {
-          method: "GET",
-          headers: { Authorization: `Token ${token}` },
-        }
-      );
-      
-      if (!response.ok) throw new Error("Failed to download format");
-      
-      const blob = await response.blob();
-      const link = document.createElement("a");
-      link.href = window.URL.createObjectURL(blob);
-      link.setAttribute("download", "question_format.xlsx");
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-
-      showSuccess("Format downloaded successfully!");
-    } catch (err) {
-      showError("Failed to download format", err);
-    }
-  };
-
-  const handleBulkUpload = async (e) => {
-    e.preventDefault();
-    if (!file) {
-      return showWarning("Please select an Excel file to upload");
-    }
-
-    setIsUploading(true);
-    const formData = new FormData();
-    formData.append("file", file);
-
-    try {
-      await authPostFormData("/api/questions/bulk_upload/", formData);
-      showSuccess("Questions uploaded successfully!");
-      setFile(null);
-      setFileName("");
-    } catch (error) {
-      showError("Upload failed", error);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleSingleSubmit = async (e) => {
+  const submitSingle = async (e) => {
     e.preventDefault();
 
-    if (isMulti && singleQuestion.correct_answers.length === 0) {
-      return showWarning("Please select at least one correct answer");
+    if (!form.subject || !form.text) {
+      return Swal.fire("Error", "Subject & Question required", "error");
     }
 
-    setIsAdding(true);
+    if (multi && form.correct_answers.length === 0) {
+      return Swal.fire("Error", "Select correct answers", "error");
+    }
+
     const payload = {
-      subject: parseInt(singleQuestion.subject_id),  // ✅ FIXED
-      text: singleQuestion.text,
-      options: {
-        A: singleQuestion.option_a,
-        B: singleQuestion.option_b,
-        C: singleQuestion.option_c,
-        D: singleQuestion.option_d,
-      },
-      correct_answers: isMulti
-        ? singleQuestion.correct_answers
-        : singleQuestion.correct_answer,
-      marks: singleQuestion.marks,
-      is_multi: isMulti,
-      explanation: singleQuestion.explanation,
+      subject: Number(form.subject), // ✅ FIX
+      text: form.text.trim(),
+      option_a: form.option_a.trim(),
+      option_b: form.option_b.trim(),
+      option_c: form.option_c.trim(),
+      option_d: form.option_d.trim(),
+      correct_answers: multi
+        ? form.correct_answers
+        : [form.correct_answer],
+      marks: Number(form.marks),
+      explanation: form.explanation,
     };
 
     try {
-      await authPost("/api/questions/", payload);
-      showSuccess("Question added successfully!");
-      
-      // Reset form
-      setSingleQuestion({
-        subject_id: "",
+      setLoading(true);
+      await authPost("/mcq/questions/", payload);
+      Swal.fire("Success", "Question added", "success");
+
+      setForm({
+        subject: "",
         text: "",
         option_a: "",
         option_b: "",
         option_c: "",
         option_d: "",
-        correct_answer: "A",
         correct_answers: [],
+        correct_answer: "A",
         marks: 1,
         explanation: "",
       });
-      setIsMulti(false);
-    } catch (error) {
-      showError("Failed to add question", error);
+      setMulti(false);
+    } catch (err) {
+      console.error(err);
+      Swal.fire(
+        "Error",
+        err?.detail || err?.non_field_errors?.[0] || "Invalid data",
+        "error"
+      );
     } finally {
-      setIsAdding(false);
+      setLoading(false);
     }
   };
 
-  const showSuccess = (message) => {
-    Swal.fire({
-      icon: "success",
-      title: "Success!",
-      text: message,
-      timer: 3000,
-      showConfirmButton: false,
-    });
+  /* ================= BULK UPLOAD ================= */
+
+  const uploadExcel = async (e) => {
+    e.preventDefault();
+
+    if (!file || !bulkSubject) {
+      return Swal.fire("Error", "File & subject required", "error");
+    }
+
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("subject", Number(bulkSubject)); // ✅ FIX
+
+    try {
+      setLoading(true);
+      await authPostFormData("/mcq/questions/upload-excel/", fd);
+      Swal.fire("Success", "Questions uploaded", "success");
+      setFile(null);
+      setBulkSubject("");
+    } catch (err) {
+      console.error(err);
+      Swal.fire("Error", "Upload failed", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const showError = (title, error) => {
-    console.error(title, error);
-    Swal.fire({
-      icon: "error",
-      title: title,
-      text: error.message || "An error occurred",
-      timer: 3000,
-      showConfirmButton: false,
-    });
-  };
-
-  const showWarning = (message) => {
-    Swal.fire({
-      icon: "warning",
-      title: "Attention",
-      text: message,
-      timer: 3000,
-      showConfirmButton: false,
-    });
-  };
-
-  const removeFile = () => {
-    setFile(null);
-    setFileName("");
-  };
+  /* ================= UI ================= */
 
   return (
-    <div className="question-upload-container">
-      <div className="header">
-        <h1>
-          <FaFileExcel /> Question Management
-        </h1>
-        <div className="mode-toggle">
+    <div className="qm-bg">
+      <div className="qm-card">
+        <h1>Question Management</h1>
+
+        {/* MODE SWITCH */}
+        <div className="qm-switch">
           <button
-            className={`toggle-btn ${!showSingleForm ? "active" : ""}`}
-            onClick={() => setShowSingleForm(false)}
-            disabled={isLoading}
+            className={mode === "bulk" ? "active" : ""}
+            onClick={() => setMode("bulk")}
           >
-            <FaCloudUploadAlt /> Bulk Upload
+            <FaFileExcel /> Bulk Upload
           </button>
           <button
-            className={`toggle-btn ${showSingleForm ? "active" : ""}`}
-            onClick={() => setShowSingleForm(true)}
-            disabled={isLoading}
+            className={mode === "single" ? "active" : ""}
+            onClick={() => setMode("single")}
           >
             <FaPlus /> Add Single
           </button>
         </div>
-      </div>
 
-      {isLoading ? (
-        <div className="loader">
-          <div className="spinner"></div>
-          <p>Loading subjects...</p>
-        </div>
-      ) : !showSingleForm ? (
-        <div className="bulk-upload">
-          <form onSubmit={handleBulkUpload}>
-            <div className="file-upload-container">
-              <label htmlFor="bulkFile" className="file-upload-label">
-                <FaCloudUploadAlt className="upload-icon" />
-                <span>Choose Excel File</span>
-                <input
-                  id="bulkFile"
-                  type="file"
-                  accept=".xlsx,.xls"
-                  onChange={handleFileChange}
-                  required
-                  disabled={isUploading}
-                />
-              </label>
-              
-              {fileName && (
-                <div className="file-preview">
-                  <span>{fileName}</span>
-                  <button 
-                    type="button" 
-                    className="remove-file"
-                    onClick={removeFile}
-                    disabled={isUploading}
-                  >
-                    <FaTimes />
-                  </button>
-                </div>
-              )}
-              
-              <div className="file-info">
-                <FaInfoCircle className="info-icon" />
-                <p>Supported formats: .xlsx, .xls. Max size: 5MB</p>
-              </div>
-            </div>
+        {/* ================= BULK ================= */}
+        {mode === "bulk" && (
+          <form className="qm-box" onSubmit={uploadExcel}>
+            <select
+              value={bulkSubject}
+              onChange={(e) => setBulkSubject(e.target.value)}
+              required
+            >
+              <option value="">Select Subject</option>
+              {subjects.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
 
-            <div className="form-actions">
-              <button
-                type="button"
-                className="download-btn"
-                onClick={handleDownload}
-                disabled={isUploading}
-              >
-                <FaDownload /> Download Format
+            <input
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={(e) => setFile(e.target.files[0])}
+            />
+
+            <div className="bulk-actions">
+              <button disabled={loading}>
+                <FaCloudUploadAlt /> Upload Excel
               </button>
-              <button
-                type="submit"
-                className="upload-btn"
-                disabled={!file || isUploading}
+              
+              <a
+                href="http://localhost:8000/api/mcq/questions/download-template/"
+                target="_blank"
+                rel="noreferrer"
+                className="download"
               >
-                {isUploading ? (
-                  <>
-                    <div className="upload-spinner"></div> Uploading...
-                  </>
-                ) : (
-                  <>
-                    <FaCloudUploadAlt /> Upload Questions
-                  </>
-                )}
-              </button>
+                <FaDownload /> Download Template
+              </a>
             </div>
           </form>
-        </div>
-      ) : (
-        <div className="single-form">
-          <form onSubmit={handleSingleSubmit}>
-            <div className="form-section">
-              <h3>Question Details</h3>
-              <div className="form-group">
-                <label htmlFor="subject">Subject</label>
-                <select
-                  id="subject"
-                  name="subject_id"
-                  value={singleQuestion.subject_id}
-                  onChange={handleInputChange}
+        )}
+
+        {/* ================= SINGLE ================= */}
+        {mode === "single" && (
+          <form className="qm-box" onSubmit={submitSingle}>
+            <select
+              name="subject"
+              value={form.subject}
+              onChange={handleChange}
+              required
+            >
+              <option value="">Select Subject</option>
+              {subjects.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+
+            <textarea
+              name="text"
+              placeholder="Question text"
+              value={form.text}
+              onChange={handleChange}
+              required
+            />
+
+            <div className="options">
+              {["a", "b", "c", "d"].map((k) => (
+                <input
+                  key={k}
+                  name={`option_${k}`}
+                  placeholder={`Option ${k.toUpperCase()}`}
+                  value={form[`option_${k}`]}
+                  onChange={handleChange}
                   required
-                  disabled={isAdding}
-                >
-                  <option value="">Select a subject</option>
-                  {subjects.map(subject => (
-                    <option key={subject.id} value={subject.id}>
-                      {subject.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="questionText">Question Text</label>
-                <textarea
-                  id="questionText"
-                  name="text"
-                  value={singleQuestion.text}
-                  onChange={handleInputChange}
-                  placeholder="Enter your question here..."
-                  required
-                  disabled={isAdding}
-                  rows={4}
                 />
-              </div>
+              ))}
             </div>
 
-            <div className="form-section">
-              <h3>Options</h3>
-              <div className="options-grid">
-                {['A', 'B', 'C', 'D'].map(option => (
-                  <div className="form-group" key={option}>
-                    <label htmlFor={`option_${option}`}>Option {option}</label>
+            <div className="config">
+              <input
+                type="number"
+                min="1"
+                name="marks"
+                value={form.marks}
+                onChange={handleChange}
+              />
+
+              <label>
+                <input
+                  type="checkbox"
+                  checked={multi}
+                  onChange={() => setMulti(!multi)}
+                />
+                Multiple Correct
+              </label>
+            </div>
+
+            {!multi ? (
+              <select
+                name="correct_answer"
+                value={form.correct_answer}
+                onChange={handleChange}
+              >
+                {["A", "B", "C", "D"].map((o) => (
+                  <option key={o}>{o}</option>
+                ))}
+              </select>
+            ) : (
+              <div className="multi">
+                {["A", "B", "C", "D"].map((o) => (
+                  <label key={o}>
                     <input
-                      id={`option_${option}`}
-                      type="text"
-                      name={`option_${option.toLowerCase()}`}
-                      value={singleQuestion[`option_${option.toLowerCase()}`]}
-                      onChange={handleInputChange}
-                      placeholder={`Enter option ${option}`}
-                      required
-                      disabled={isAdding}
+                      type="checkbox"
+                      checked={form.correct_answers.includes(o)}
+                      onChange={() => toggleCorrect(o)}
                     />
-                  </div>
+                    {o}
+                  </label>
                 ))}
               </div>
-            </div>
+            )}
 
-            <div className="form-section">
-              <h3>Answer Configuration</h3>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="marks">Marks</label>
-                  <input
-                    id="marks"
-                    type="number"
-                    name="marks"
-                    value={singleQuestion.marks}
-                    onChange={handleInputChange}
-                    min="1"
-                    max="10"
-                    required
-                    disabled={isAdding}
-                  />
-                </div>
-                
-                <div className="form-group checkbox-group">
-                  <label htmlFor="isMulti">
-                    <input
-                      id="isMulti"
-                      type="checkbox"
-                      checked={isMulti}
-                      onChange={handleMultiToggle}
-                      disabled={isAdding}
-                    />
-                    Multiple Correct Answers
-                  </label>
-                </div>
-              </div>
+            <textarea
+              name="explanation"
+              placeholder="Explanation (optional)"
+              value={form.explanation}
+              onChange={handleChange}
+            />
 
-              {!isMulti ? (
-                <div className="form-group">
-                  <label htmlFor="correctAnswer">Correct Answer</label>
-                  <select
-                    id="correctAnswer"
-                    name="correct_answer"
-                    value={singleQuestion.correct_answer}
-                    onChange={handleInputChange}
-                    required
-                    disabled={isAdding}
-                  >
-                    <option value="A">A</option>
-                    <option value="B">B</option>
-                    <option value="C">C</option>
-                    <option value="D">D</option>
-                  </select>
-                </div>
-              ) : (
-                <div className="form-group">
-                  <label>Correct Answers</label>
-                  <div className="multi-checkboxes">
-                    {['A', 'B', 'C', 'D'].map(option => (
-                      <label key={option} htmlFor={`correct-${option}`}>
-                        <input
-                          id={`correct-${option}`}
-                          type="checkbox"
-                          value={option}
-                          checked={singleQuestion.correct_answers.includes(option)}
-                          onChange={handleMultiCorrectAnswerChange}
-                          disabled={isAdding}
-                        />
-                        {option}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="form-section">
-              <h3>Additional Information</h3>
-              <div className="form-group">
-                <label htmlFor="explanation">Explanation</label>
-                <textarea
-                  id="explanation"
-                  name="explanation"
-                  value={singleQuestion.explanation}
-                  onChange={handleInputChange}
-                  placeholder="Add explanation for the correct answer..."
-                  disabled={isAdding}
-                  rows={3}
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              className="submit-btn"
-              disabled={isAdding}
-            >
-              {isAdding ? (
-                <>
-                  <div className="add-spinner"></div> Adding...
-                </>
-              ) : (
-                <>
-                  <FaCheckCircle /> Add Question
-                </>
-              )}
+            <button disabled={loading}>
+              <FaCheckCircle /> Save Question
             </button>
           </form>
-        </div>
-      )}
+        )}
+      </div>
+
+
+      {/* ================= STYLES ================= */}
+      <style>{`
+        * { box-sizing: border-box; }
+
+        .qm-bg {
+          min-height: 100vh;
+          background: linear-gradient(135deg,#2563eb,#7c3aed);
+          display: flex;
+          justify-content: center;
+          padding: 20px;
+        }
+
+        .qm-card {
+          width: 100%;
+          max-width: 900px;
+          background: #fff;
+          border-radius: 18px;
+          padding: 28px;
+          box-shadow: 0 20px 50px rgba(0,0,0,.2);
+        }
+
+        h1 {
+          margin-bottom: 20px;
+        }
+
+        .qm-switch {
+          display: flex;
+          gap: 10px;
+          margin-bottom: 20px;
+        }
+
+        .qm-switch button {
+          flex: 1;
+          padding: 12px;
+          border-radius: 10px;
+          border: none;
+          background: #e5e7eb;
+          cursor: pointer;
+        }
+
+        .qm-switch .active {
+          background: #2563eb;
+          color: #fff;
+        }
+
+        .qm-box {
+          display: grid;
+          gap: 14px;
+        }
+
+        input, textarea, select {
+          padding: 12px;
+          border-radius: 10px;
+          border: 1px solid #ccc;
+          width: 100%;
+        }
+
+        textarea {
+          min-height: 90px;
+        }
+
+        .options {
+          display: grid;
+          grid-template-columns: repeat(auto-fit,minmax(220px,1fr));
+          gap: 10px;
+        }
+
+        .config {
+          display: flex;
+          gap: 14px;
+          align-items: center;
+        }
+
+        .multi {
+          display: flex;
+          gap: 14px;
+        }
+
+        button {
+          padding: 14px;
+          border-radius: 12px;
+          border: none;
+          background: #0d6efd;
+          color: #fff;
+          font-size: 15px;
+          cursor: pointer;
+        }
+        
+        .download {
+          padding: 14px;
+          border-radius: 12px;
+          border: none;
+          background: #0adb5aff;
+          color: #fff;
+          font-size: 15px;
+          cursor: pointer;
+        }
+
+        button:disabled {
+          opacity: .6;
+        }
+
+        @media(max-width:600px) {
+          .config {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+        }
+      `}</style>
     </div>
   );
-};
-
-export default QuestionUpload;
+}

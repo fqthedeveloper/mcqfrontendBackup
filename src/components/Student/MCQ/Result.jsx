@@ -14,7 +14,7 @@ export default function ResultDetail() {
   useEffect(() => {
     const fetchResult = async () => {
       try {
-        const data = await authGet(`/api/results/session/${sessionId}/`);
+        const data = await authGet(`/mcq/results/session/${sessionId}/`);
         setResult(data);
       } catch (err) {
         console.error('Failed to load result:', err);

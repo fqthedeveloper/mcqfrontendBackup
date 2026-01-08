@@ -1,26 +1,23 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import Swal from "sweetalert2";
-import { authGet, authPost } from "../../../services/api";
+import { authGet, authPut, authPost } from "../../../services/api";
 
 /* ================= HELPERS ================= */
 const normalize = (r) =>
   Array.isArray(r) ? r : Array.isArray(r?.results) ? r.results : [];
 
 /* ================= COMPONENT ================= */
-export default function CreateExam() {
+export default function EditExamForm() {
+  const { id } = useParams();
   const navigate = useNavigate();
 
   const [subjects, setSubjects] = useState([]);
   const [available, setAvailable] = useState([]);
   const [selected, setSelected] = useState([]);
 
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
-  const [loadingQ, setLoadingQ] = useState(false);
-
-  const [questionSubject, setQuestionSubject] = useState("");
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
 
   const [exam, setExam] = useState({
     title: "",
@@ -29,56 +26,73 @@ export default function CreateExam() {
     mode: "practice",
   });
 
-  /* ================= LOAD SUBJECTS ================= */
+  /* ================= INITIAL LOAD ================= */
   useEffect(() => {
-    authGet("/mcq/subjects/").then((r) => setSubjects(normalize(r)));
-  }, []);
+    loadInitial();
+  }, [id]);
 
-  /* ================= LOAD QUESTIONS ================= */
-  useEffect(() => {
-    resetQuestions();
-  }, [questionSubject]);
+  const loadInitial = async () => {
+    try {
+      const [subRes, examRes] = await Promise.all([
+        authGet("/mcq/subjects/"),
+        authGet(`/mcq/exams/${id}/`),
+      ]);
 
-  const resetQuestions = () => {
-    setAvailable([]);
-    setPage(1);
-    loadQuestions(1, true);
-  };
+      setSubjects(normalize(subRes));
 
-  const loadQuestions = async (pg, reset = false) => {
-    setLoadingQ(true);
+      setExam({
+        title: examRes.title,
+        subject: examRes.subject,
+        duration: examRes.duration,
+        mode: examRes.mode,
+      });
 
-    let url = `/mcq/questions/?page=${pg}`;
-    if (questionSubject) url += `&subject=${questionSubject}`;
+      // 🔥 selected questions come from examRes.questions (ids)
+      const questionRes = await authGet(
+        `/mcq/questions/?subject=${examRes.subject}`
+      );
+      const all = normalize(questionRes);
 
-    const res = await authGet(url);
-    const data = normalize(res);
+      const selectedQs = all.filter((q) =>
+        examRes.questions.includes(q.id)
+      );
+      const availableQs = all.filter(
+        (q) => !examRes.questions.includes(q.id)
+      );
 
-    setAvailable((p) => (reset ? data : [...p, ...data]));
-    setHasMore(Boolean(res.next));
-    setLoadingQ(false);
-  };
-
-  /* ================= FILTER ================= */
-  const filteredAvailable = available.filter(
-    (q) =>
-      !selected.some((s) => s.id === q.id) &&
-      q.text.toLowerCase().includes(search.toLowerCase())
-  );
-
-  /* ================= SELECT ================= */
-  const addQuestion = (q) => {
-    if (selected.length >= 100) {
-      return Swal.fire("Limit Reached", "Maximum 100 questions allowed", "warning");
+      setSelected(selectedQs);
+      setAvailable(availableQs);
+    } catch {
+      Swal.fire("Error", "Failed to load exam data", "error");
+    } finally {
+      setLoading(false);
     }
+  };
+
+  /* ================= SUBJECT CHANGE ================= */
+  const handleSubjectChange = async (subjectId) => {
+    setExam((p) => ({ ...p, subject: subjectId }));
+    setSelected([]);
+
+    const res = await authGet(`/mcq/questions/?subject=${subjectId}`);
+    setAvailable(normalize(res));
+  };
+
+  /* ================= SELECT / REMOVE ================= */
+  const addQuestion = (q) => {
+    if (selected.length >= 100)
+      return Swal.fire("Limit", "Max 100 questions allowed", "warning");
+
     setSelected((p) => [...p, q]);
+    setAvailable((p) => p.filter((x) => x.id !== q.id));
   };
 
-  const removeQuestion = (id) => {
-    setSelected((p) => p.filter((x) => x.id !== id));
+  const removeQuestion = (q) => {
+    setAvailable((p) => [...p, q]);
+    setSelected((p) => p.filter((x) => x.id !== q.id));
   };
 
-  /* ================= SUBMIT ================= */
+  /* ================= SAVE ================= */
   const submit = async (publish) => {
     if (!exam.title || !exam.subject)
       return Swal.fire("Error", "Title & Subject required", "error");
@@ -86,40 +100,54 @@ export default function CreateExam() {
     if (!selected.length)
       return Swal.fire("Error", "Select at least one question", "error");
 
-    const res = await authPost("/mcq/exams/", {
-      ...exam,
+    await authPut(`/mcq/exams/${id}/`, {
+      title: exam.title,
+      subject: exam.subject,
+      duration: exam.duration,
+      mode: exam.mode,
       questions: selected.map((q) => q.id),
     });
 
     if (publish) {
-      await authPost(`/mcq/exams/${res.id}/publish/`);
+      await authPost(`/mcq/exams/${id}/publish/`);
     }
 
-    Swal.fire("Success", "Exam created successfully", "success");
+    Swal.fire("Success", "Exam updated successfully", "success");
     navigate("/admin/exam-list");
   };
+
+  /* ================= FILTER ================= */
+  const filteredAvailable = available.filter((q) =>
+    q.text.toLowerCase().includes(search.toLowerCase())
+  );
+
+  if (loading) {
+    return <div className="page-center">Loading exam…</div>;
+  }
 
   /* ================= UI ================= */
   return (
     <div className="exam-wrapper">
       <div className="exam-card">
-        <h2>Create Exam</h2>
+        <h2>Edit Exam</h2>
 
         {/* FORM */}
         <div className="form-grid">
           <input
             placeholder="Exam Title"
             value={exam.title}
-            onChange={(e) => setExam({ ...exam, title: e.target.value })}
+            onChange={(e) =>
+              setExam({ ...exam, title: e.target.value })
+            }
           />
 
           <select
             value={exam.subject}
             onChange={(e) =>
-              setExam({ ...exam, subject: Number(e.target.value) })
+              handleSubjectChange(Number(e.target.value))
             }
           >
-            <option value="">Select Exam Subject</option>
+            <option value="">Select Subject</option>
             {subjects.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -129,7 +157,6 @@ export default function CreateExam() {
 
           <input
             type="number"
-            min="1"
             value={exam.duration}
             onChange={(e) =>
               setExam({ ...exam, duration: Number(e.target.value) })
@@ -147,32 +174,19 @@ export default function CreateExam() {
           </select>
         </div>
 
-        {/* FILTER */}
+        {/* TOOLBAR */}
         <div className="toolbar">
-          <select
-            value={questionSubject}
-            onChange={(e) =>
-              setQuestionSubject(e.target.value ? Number(e.target.value) : "")
-            }
-          >
-            <option value="">All Subjects</option>
-            {subjects.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-
           <input
-            placeholder="Search questions..."
+            placeholder="Search available questions..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-
-          <span className="counter">{selected.length} / 100 selected</span>
+          <span className="counter">
+            {selected.length} / 100 selected
+          </span>
         </div>
 
-        {/* COLUMNS */}
+        {/* TWO COLUMNS */}
         <div className="columns">
           {/* AVAILABLE */}
           <div className="column">
@@ -192,17 +206,8 @@ export default function CreateExam() {
               </div>
             ))}
 
-            {hasMore && (
-              <button
-                className="load-more"
-                onClick={() => {
-                  const next = page + 1;
-                  setPage(next);
-                  loadQuestions(next);
-                }}
-              >
-                Load more ({page * 100 + 1} – {(page + 1) * 100})
-              </button>
+            {filteredAvailable.length === 0 && (
+              <p className="empty">No questions available</p>
             )}
           </div>
 
@@ -217,7 +222,7 @@ export default function CreateExam() {
                   <span>{q.subject_name || "Unknown"}</span>
                   <button
                     className="remove-btn"
-                    onClick={() => removeQuestion(q.id)}
+                    onClick={() => removeQuestion(q)}
                   >
                     ✕
                   </button>
@@ -279,10 +284,15 @@ input, select {
 
 .toolbar {
   margin-top: 20px;
-  display: grid;
-  grid-template-columns: 1.5fr 3fr auto;
+  display: flex;
+  justify-content: space-between;
   gap: 12px;
   align-items: center;
+}
+
+.counter {
+  font-weight: 600;
+  color: #2563eb;
 }
 
 .columns {
@@ -309,6 +319,7 @@ input, select {
   border-radius: 14px;
   padding: 12px;
   margin-bottom: 10px;
+  cursor: pointer;
 }
 
 .selected-card {
@@ -325,12 +336,12 @@ input, select {
 
 .remove-btn {
   background: #2563eb;
+  border: none;
   color: #fff;
   border-radius: 50%;
   align-items: center;
   display: flex;
   justify-content: center;
-  border: none;
   width: 30px;
   height: 30px;
   cursor: pointer;
@@ -353,6 +364,12 @@ button {
 
 .publish {
   background: #16a34a;
+}
+
+.empty {
+  text-align: center;
+  padding: 20px;
+  color: #777;
 }
 
 @media (max-width: 900px) {

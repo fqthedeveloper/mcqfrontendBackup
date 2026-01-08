@@ -33,10 +33,9 @@ export const AuthProvider = ({ children }) => {
       const userData = {
         id: response.id,
         email: response.email,
+        full_name: response.full_name,
         username: response.username,
         role: response.role,
-        first_name: response.first_name,
-        last_name: response.last_name,
         force_password_change: response.force_password_change,
         is_verified: response.is_verified,
       };

@@ -24,10 +24,10 @@ import VerifyOTP from "./components/Auth/VerifyOTP";
 import AdminDashboard from "./components/Admin/Core/AdminDashboard";
 import AddStudent from "./components/Admin/Core/AddStudent";
 import StudentList from "./components/Admin/Core/StudentList";
-import SubjectForm from "./components/Admin/Core/SubjectForm";
-import SubjectList from "./components/Admin/Core/SubjectList";
 import QuestionUpload from "./components/Admin/MCQ/QuestionUpload";
+import QuestionManagement from "./components/Admin/MCQ/QuestionManegment";
 import ExamForm from "./components/Admin/MCQ/ExamForm";
+import EditExamForm from "./components/Admin/MCQ/EditExamForm";
 import AdminExamList from "./components/Admin/MCQ/AdminExamList";
 import AdminResultList from "./components/Admin/MCQ/AdminResultList";
 
@@ -147,28 +147,19 @@ function App() {
                 }
               />
               <Route
-                path="/admin/subjects"
-                element={
-                  <ProtectedRoute
-                    element={<SubjectList />}
-                    roles={["admin"]}
-                  />
-                }
-              />
-              <Route
-                path="/admin/add-subject"
-                element={
-                  <ProtectedRoute
-                    element={<SubjectForm />}
-                    roles={["admin"]}
-                  />
-                }
-              />
-              <Route
                 path="/admin/upload-questions"
                 element={
                   <ProtectedRoute
                     element={<QuestionUpload />}
+                    roles={["admin"]}
+                  />
+                }
+              />
+              <Route
+                path="/admin/question-list"
+                element={
+                  <ProtectedRoute
+                    element={<QuestionManagement />}
                     roles={["admin"]}
                   />
                 }
@@ -195,7 +186,7 @@ function App() {
                 path="/admin/exams/:id/edit"
                 element={
                   <ProtectedRoute
-                    element={<ExamForm isEdit={true} />}
+                    element={<EditExamForm />}
                     roles={["admin"]}
                   />
                 }

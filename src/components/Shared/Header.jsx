@@ -95,8 +95,6 @@ export default function Header() {
         <>
           <div className="overlay" onClick={() => setUserMenu(false)} />
           <div className="user-menu">
-            <p className="name">{user.first_name} {user.last_name}</p>
-            <p className="email">{user.email}</p>
             <button onClick={handleLogout}>
               <i className="fas fa-sign-out-alt" /> Logout
             </button>

@@ -8,9 +8,11 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     authGet("/mcq/admin-dashboard/").then(setStats).catch(() => setStats({}));
+    document.title = "Admin Dashboard - MCQ Admin";
   }, []);
 
   if (!stats) return <p style={{ padding: 24 }}>Loading...</p>;
+
 
   return (
     <div className="admin-dashboard">
@@ -42,10 +44,10 @@ export default function AdminDashboard() {
       <section className="actions-grid">
         <Action title="Add Student" onClick={() => navigate("/admin/add-student")} icon={<PlusIcon />} />
         <Action title="Student List" onClick={() => navigate("/admin/student-list")} icon={<ListIcon />} />
-        <Action title="Subjects" onClick={() => navigate("/admin/subjects")} icon={<TagIcon />} />
         <Action title="Questions" onClick={() => navigate("/admin/upload-questions")} icon={<QuestionIcon />} />
+        <Action title="Questions List" onClick={() => navigate("/admin/question-list")} icon={<QuestionIcon />} />
         <Action title="Exams" onClick={() => navigate("/admin/add-exam")} icon={<ExamIcon />} />
-        <Action title="Enrollments" onClick={() => navigate("/admin/exam-list")} icon={<EnrollIcon />} />
+        <Action title="Exams List" onClick={() => navigate("/admin/exam-list")} icon={<ExamListIcon />} />
       </section>
 
       <style>{`
@@ -121,3 +123,6 @@ const PlusIcon = () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="no
 const ListIcon = () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" stroke="#2b6cb0" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>);
 const TagIcon = () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20.59 13.41L13.41 6.23a2 2 0 00-2.83 0L3 14v7h7l7.59-7.59a2 2 0 000-2.83z" stroke="#2b6cb0" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>);
 const EnrollIcon = () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke="#2b6cb0" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><circle cx="12" cy="7" r="4" stroke="#2b6cb0" strokeWidth="1.2"/></svg>);
+const ExamListIcon = () => (
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 7h18M7 3v4M17 3v4M21 21H3V7h18v14z" stroke="#2b6cb0" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
+);
