@@ -409,3 +409,182 @@
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
+.result-container {
+  max-width: 900px;
+  margin: auto;
+  padding: 20px;
+}
+
+.question-review {
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.question-review.correct {
+  border-left: 6px solid #16a34a;
+  background: #f0fdf4;
+}
+
+.question-review.incorrect {
+  border-left: 6px solid #dc2626;
+  background: #fef2f2;
+}
+
+.correct-text {
+  color: #16a34a;
+  font-weight: bold;
+}
+
+.wrong-text {
+  color: #dc2626;
+  font-weight: bold;
+}
+
+.explanation-box {
+  margin-top: 10px;
+  padding: 12px;
+  background: #fff1f2;
+  border-left: 4px solid #dc2626;
+  border-radius: 6px;
+}
+.result-container {
+  max-width: 1200px;
+  margin: 2rem auto;
+  padding: 1.5rem;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.08);
+}
+
+.page-title {
+  text-align: center;
+  font-size: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.result-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.submitted-date {
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+/* Score Card */
+.score-card {
+  background: linear-gradient(135deg, #f8f9fa, #eef2f7);
+  padding: 2rem;
+  border-radius: 12px;
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.score-percentage {
+  font-size: 3.5rem;
+  font-weight: bold;
+  color: #16a34a;
+}
+
+.score-details p {
+  margin: 0.5rem 0;
+}
+
+/* Table */
+.result-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.result-table th {
+  background: #2563eb;
+  color: #fff;
+  padding: 14px;
+}
+
+.result-table td {
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.result-table tr:nth-child(even) {
+  background: #f9fafb;
+}
+
+.view-link {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+/* Status */
+.status-badge {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.status-badge.correct {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.status-badge.incorrect {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+/* Question Review */
+.question-review {
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.question-review.correct {
+  border-left: 6px solid #16a34a;
+  background: #f0fdf4;
+}
+
+.question-review.incorrect {
+  border-left: 6px solid #dc2626;
+  background: #fef2f2;
+}
+
+.correct-text {
+  color: #16a34a;
+  font-weight: bold;
+}
+
+.wrong-text {
+  color: #dc2626;
+  font-weight: bold;
+}
+
+.explanation-box {
+  margin-top: 10px;
+  padding: 12px;
+  background: #fff1f2;
+  border-left: 4px solid #dc2626;
+  border-radius: 6px;
+}
+
+/* Buttons */
+.result-footer {
+  text-align: center;
+  margin-top: 2rem;
+}
+
+.dashboard-btn {
+  background: #2563eb;
+  color: white;
+  border: none;
+  padding: 12px 28px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+

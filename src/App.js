@@ -30,6 +30,7 @@ import ExamForm from "./components/Admin/MCQ/ExamForm";
 import EditExamForm from "./components/Admin/MCQ/EditExamForm";
 import AdminExamList from "./components/Admin/MCQ/AdminExamList";
 import AdminResultList from "./components/Admin/MCQ/AdminResultList";
+import AdminResultDetail from "./components/Admin/MCQ/AdminResultDetail";
 
 /* Student */
 import StudentDashboard from "./components/Student/MCQ/StudentDashboard";
@@ -200,7 +201,15 @@ function App() {
                   />
                 }
               />
-
+              <Route
+                path="/admin/results/:sessionId" 
+                element={
+                  <ProtectedRoute
+                    element={<AdminResultDetail />}
+                    roles={["admin"]}
+                  />
+                }
+              />
               {/* ===== STUDENT ===== */}
               <Route
                 path="/student"

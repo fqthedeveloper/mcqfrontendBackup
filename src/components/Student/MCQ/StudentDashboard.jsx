@@ -1,32 +1,58 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authGet } from "../../../services/api";
+import Swal from "sweetalert2";
+import { motion } from "framer-motion";
 
 export default function StudentDashboard() {
   const navigate = useNavigate();
 
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [welcomeText, setWelcomeText] = useState("");
 
   useEffect(() => {
     loadProfile();
     document.title = "Student Dashboard";
   }, []);
 
+  const showWelcomeToast = (text, full_name, isFirst) => {
+    Swal.fire({
+      toast: true,
+      position: "top-end",
+      icon: "success",
+      title: `${text}, ${full_name}`,
+      text: isFirst
+        ? "We’re glad to have you here 🎉"
+        : "Nice to see you again 👋",
+      showConfirmButton: false,
+      timer: 3500,
+      timerProgressBar: true,
+      background: "#ffffff",
+      iconColor: "#4f46e5",
+    });
+  };
+
   const loadProfile = async () => {
     try {
       const data = await authGet("/mcq/my-profile/");
       setProfile(data);
 
-      const storageKey = `student_first_login_${data.username}`;
-      const isFirstLogin = !localStorage.getItem(storageKey);
+      const key = `student_first_login_${data.username}`;
+      const isFirstLogin = !localStorage.getItem(key);
 
       if (isFirstLogin) {
-        setWelcomeText("Welcome");
-        localStorage.setItem(storageKey, "true");
+        showWelcomeToast(
+          "Welcome",
+          `${data.first_name} ${data.last_name}`,
+          true
+        );
+        localStorage.setItem(key, "true");
       } else {
-        setWelcomeText("Welcome back");
+        showWelcomeToast(
+          "Welcome back",
+          `${data.first_name} ${data.last_name}`,
+          false
+        );
       }
     } catch (err) {
       console.error(err);
@@ -45,20 +71,28 @@ export default function StudentDashboard() {
 
   return (
     <div className="student-bg">
-      <div className="student-dashboard">
+      <motion.div
+        className="student-dashboard"
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+      >
         {/* HEADER */}
         <div className="header">
           <h1>Student Dashboard</h1>
           <p className="welcome">
-            {welcomeText},&nbsp;
+            Hello,&nbsp;
             <strong>
-              {profile.full_name}
+              {profile.first_name} {profile.last_name}
             </strong>
           </p>
         </div>
 
         {/* PROFILE CARD */}
-        <div className="profile-card">
+        <motion.div
+          className="profile-card"
+          whileHover={{ scale: 1.02 }}
+        >
           <h2>My Profile</h2>
 
           <div className="profile-grid">
@@ -79,44 +113,48 @@ export default function StudentDashboard() {
               </p>
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* ACTION CARDS */}
         <div className="card-grid">
-          <div
-            className="action-card"
-            onClick={() => navigate("/student/exams")}
-          >
-            <div className="icon">📘</div>
-            <h3>Exams</h3>
-            <p>View & start your exams</p>
-          </div>
-
-          <div
-            className="action-card"
-            onClick={() => navigate("/student/results")}
-          >
-            <div className="icon">📊</div>
-            <h3>Results</h3>
-            <p>Check exam scores</p>
-          </div>
-
-          <div
-            className="action-card"
-            onClick={() => navigate("/student/profile")}
-          >
-            <div className="icon">👤</div>
-            <h3>Profile</h3>
-            <p>Account details</p>
-          </div>
+          {[
+            {
+              icon: "📘",
+              title: "Exams",
+              desc: "View & start exams",
+              path: "/student/exams",
+            },
+            {
+              icon: "📊",
+              title: "Results",
+              desc: "Check exam scores",
+              path: "/student/results",
+            },
+            {
+              icon: "👤",
+              title: "Profile",
+              desc: "Account details",
+              path: "/student/profile",
+            },
+          ].map((card, i) => (
+            <motion.div
+              key={i}
+              className="action-card"
+              whileHover={{ y: -8 }}
+              whileTap={{ scale: 0.96 }}
+              onClick={() => navigate(card.path)}
+            >
+              <div className="icon">{card.icon}</div>
+              <h3>{card.title}</h3>
+              <p>{card.desc}</p>
+            </motion.div>
+          ))}
         </div>
-      </div>
+      </motion.div>
 
       {/* ================= STYLES ================= */}
       <style>{`
-        * {
-          box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
 
         .student-bg {
           min-height: 100vh;
@@ -134,13 +172,12 @@ export default function StudentDashboard() {
         .student-dashboard {
           width: 100%;
           max-width: 1100px;
-          background: rgba(255, 255, 255, 0.97);
+          background: #fff;
           border-radius: 18px;
           padding: 28px;
-          box-shadow: 0 25px 60px rgba(0, 0, 0, 0.18);
+          box-shadow: 0 25px 60px rgba(0,0,0,0.2);
         }
 
-        /* HEADER */
         .header {
           margin-bottom: 24px;
         }
@@ -152,23 +189,14 @@ export default function StudentDashboard() {
 
         .welcome {
           margin-top: 6px;
-          color: #444;
-          font-size: 16px;
+          color: #555;
         }
 
-        /* PROFILE CARD */
         .profile-card {
-          background: #fff;
+          background: #f9fafb;
           border-radius: 14px;
           padding: 20px;
           margin-bottom: 28px;
-          box-shadow: 0 10px 25px rgba(0,0,0,.08);
-        }
-
-        .profile-card h2 {
-          margin-top: 0;
-          font-size: 20px;
-          margin-bottom: 14px;
         }
 
         .profile-grid {
@@ -177,26 +205,9 @@ export default function StudentDashboard() {
           gap: 16px;
         }
 
-        .profile-grid span {
-          font-size: 13px;
-          color: #777;
-        }
+        .verified { color: #16a34a; }
+        .not-verified { color: #dc2626; }
 
-        .profile-grid p {
-          margin: 4px 0 0;
-          font-weight: 600;
-          color: #222;
-        }
-
-        .verified {
-          color: #16a34a;
-        }
-
-        .not-verified {
-          color: #dc2626;
-        }
-
-        /* ACTION CARDS */
         .card-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -204,13 +215,12 @@ export default function StudentDashboard() {
         }
 
         .action-card {
-          background: linear-gradient(135deg, #f8fafc, #eef2ff);
+          background: linear-gradient(135deg, #eef2ff, #f8fafc);
           border-radius: 16px;
           padding: 26px;
           cursor: pointer;
           text-align: center;
-          transition: all 0.3s ease;
-          box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+          box-shadow: 0 10px 25px rgba(0,0,0,0.12);
         }
 
         .action-card .icon {
@@ -227,34 +237,14 @@ export default function StudentDashboard() {
           color: #555;
         }
 
-        .action-card:hover {
-          transform: translateY(-8px);
-          box-shadow: 0 18px 40px rgba(0,0,0,0.18);
-        }
-
-        /* LOADING */
         .loading {
-          font-size: 18px;
           color: #fff;
+          font-size: 18px;
         }
 
-        /* MOBILE */
         @media (max-width: 600px) {
-          .student-dashboard {
-            padding: 20px;
-          }
-
-          h1 {
-            font-size: 24px;
-          }
-
-          .action-card {
-            padding: 20px;
-          }
-
-          .action-card .icon {
-            font-size: 30px;
-          }
+          h1 { font-size: 24px; }
+          .student-dashboard { padding: 20px; }
         }
       `}</style>
     </div>

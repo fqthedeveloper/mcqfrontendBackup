@@ -73,12 +73,14 @@ export default function ExamList() {
           </div>
         ))}
       </div>
+      <br />
       <div className="exam-notes">
         <h4>⚠ Important Notes</h4>
         <ul>
           <li>Timer runs continuously</li>
           <li>No multiple attempts</li>
           <li>Auto-submit on time end</li>
+          <li>80% or higher required to pass</li>
           <li>Do not refresh page</li>
         </ul>
       </div>
@@ -116,6 +118,18 @@ export default function ExamList() {
           padding: 20px;
           background: #fef2f2;
           border-radius: 12px;
+        }
+        .exam-notes {
+          background: #e00d0dff;
+          color: #fff;
+          padding: 16px;
+          border-radius: 12px;
+          width: fit-content;
+        }
+        .exam-notes ul {
+          margin: 0;
+          padding-left: 20px;
+
         }
       `}</style>
     </div>
