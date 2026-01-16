@@ -1,194 +1,133 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { authPost } from '../../services/api';
-import { FiMail, FiClock, FiArrowLeft, FiLock, FiCheck } from 'react-icons/fi';
-import { useAuth } from '../../context/AuthContext';
-import '../../styles/CSS/OTP.css';
+import React, { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { authPost } from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
+import "../../styles/CSS/OTP.css";
 
 export default function OTPPage() {
   const navigate = useNavigate();
   const { user, updateUser } = useAuth();
 
-  const [email, setEmail] = useState('');
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const [message, setMessage] = useState({ text: '', type: '' });
-  const [isLoading, setIsLoading] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
-  const [step, setStep] = useState('send');
+  const [step, setStep] = useState("send");
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
 
-  const isVerifyingRef = useRef(false);   // blocks double submit
-  const verifiedRef = useRef(false);      // blocks post-success UI
-  const unmountedRef = useRef(false);     // blocks state updates
+  const verifiedRef = useRef(false);   // 🔥 OTP already verified
+  const submittingRef = useRef(false); // 🔥 block double submit
 
-  /* ================= CLEANUP ================= */
-  useEffect(() => {
-    return () => {
-      unmountedRef.current = true;
-    };
-  }, []);
-
-  /* ================= AUTO EMAIL ================= */
+  /* ================= INIT ================= */
   useEffect(() => {
     if (user?.email) setEmail(user.email);
+
+    if (sessionStorage.getItem("OTP_IN_PROGRESS") === "1") {
+      setStep("verify");
+    }
   }, [user]);
 
-  /* ================= COOLDOWN ================= */
-  useEffect(() => {
-    if (cooldown > 0) {
-      const t = setTimeout(() => setCooldown(cooldown - 1), 1000);
-      return () => clearTimeout(t);
-    }
-  }, [cooldown]);
-
   /* ================= SEND OTP ================= */
-  const handleSendOtp = async (e) => {
-    e.preventDefault();
-    if (cooldown > 0 || isLoading) return;
+  const sendOtp = async () => {
+    if (loading) return;
 
-    setIsLoading(true);
-    setMessage({ text: '', type: '' });
+    setLoading(true);
+    setMessage("");
 
     try {
-      const res = await authPost('/mcq/send-otp/', { email });
-      if (!unmountedRef.current) {
-        setMessage({ text: res.message, type: 'success' });
-        setCooldown(60);
-        setStep('verify');
-      }
-    } catch (err) {
-      if (!unmountedRef.current) {
-        setMessage({
-          text: err?.error || err?.detail || 'Failed to send OTP',
-          type: 'error',
-        });
-      }
+      await authPost("/mcq/send-otp/", { email });
+      sessionStorage.setItem("OTP_IN_PROGRESS", "1");
+      setStep("verify");
+    } catch {
+      setMessage("Failed to send OTP");
     } finally {
-      if (!unmountedRef.current) setIsLoading(false);
+      setLoading(false);
     }
   };
 
   /* ================= OTP INPUT ================= */
-  const handleOtpChange = (index, value) => {
+  const handleOtpChange = (i, value) => {
     if (!/^\d?$/.test(value)) return;
-
-    setOtp((prev) => {
-      const next = [...prev];
-      next[index] = value;
-      return next;
-    });
-
-    if (value && index < 5) {
-      document.getElementById(`otp-${index + 1}`)?.focus();
-    }
+    const next = [...otp];
+    next[i] = value;
+    setOtp(next);
   };
 
   /* ================= VERIFY OTP ================= */
-  const handleVerifyOtp = async (e) => {
+  const verifyOtp = async (e) => {
     e.preventDefault();
 
-    if (isVerifyingRef.current || verifiedRef.current) return;
-    isVerifyingRef.current = true;
+    // 🔥 BLOCK ALL DUPLICATES
+    if (submittingRef.current || verifiedRef.current) return;
+    submittingRef.current = true;
 
-    const fullOtp = otp.join('');
-    if (fullOtp.length !== 6) {
-      setMessage({ text: 'Please enter 6-digit OTP', type: 'error' });
-      isVerifyingRef.current = false;
+    const code = otp.join("");
+    if (code.length !== 6) {
+      setMessage("Enter 6 digit OTP");
+      submittingRef.current = false;
       return;
     }
 
-    setIsLoading(true);
-    setMessage({ text: '', type: '' });
+    setLoading(true);
+    setMessage("");
 
     try {
-      const res = await authPost('/mcq/verify-otp/', {
-        otp: fullOtp,
-        email,
-      });
+      await authPost("/mcq/verify-otp/", { email, otp: code });
 
-      // ✅ MARK VERIFIED IMMEDIATELY
+      // ✅ MARK VERIFIED ONCE
       verifiedRef.current = true;
+      sessionStorage.removeItem("OTP_IN_PROGRESS");
 
       updateUser({ ...user, is_verified: true });
 
-      // 🔥 HARD REDIRECT (OTP PAGE WILL NEVER RENDER AGAIN)
-      navigate(
-        user?.role === 'admin' ? '/admin' : '/student',
-        { replace: true }
-      );
+      // 🔥 IMMEDIATE REDIRECT (NO UI UPDATE AFTER THIS)
+      navigate("/student", { replace: true });
     } catch (err) {
-      if (!verifiedRef.current && !unmountedRef.current) {
-        setMessage({
-          text: err?.error || err?.detail || 'Invalid OTP',
-          type: 'error',
-        });
-        setOtp(['', '', '', '', '', '']);
-        isVerifyingRef.current = false;
-        document.getElementById('otp-0')?.focus();
+      // ❌ IGNORE ERRORS AFTER SUCCESS
+      if (!verifiedRef.current) {
+        setMessage("Invalid OTP");
+        submittingRef.current = false;
       }
     } finally {
-      if (!unmountedRef.current) setIsLoading(false);
-    }
-  };
-
-  /* ================= BACK ================= */
-  const handleBack = () => {
-    if (step === 'verify') {
-      setStep('send');
-      setOtp(['', '', '', '', '', '']);
-      setMessage({ text: '', type: '' });
-      isVerifyingRef.current = false;
-    } else {
-      navigate(-1);
+      setLoading(false);
     }
   };
 
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <button type="button" className="back-button" onClick={handleBack}>
-          <FiArrowLeft size={20} /> Back
-        </button>
+        <h2>{step === "send" ? "Verify Your Email" : "Enter OTP"}</h2>
 
-        <div className="auth-icon">
-          {step === 'send' ? <FiMail size={48} /> : <FiLock size={48} />}
-        </div>
-
-        <h2>{step === 'send' ? 'Verify Your Email' : 'Enter OTP'}</h2>
-
-        {step === 'send' ? (
-          <form onSubmit={handleSendOtp} className="auth-form">
-            <input type="email" value={email} disabled readOnly />
-            <button type="submit" disabled={isLoading || cooldown > 0}>
-              {cooldown > 0 ? `Resend in ${cooldown}s` : 'Send OTP'}
+        {step === "send" && (
+          <>
+            <input type="email" value={email} readOnly />
+            <button onClick={sendOtp} disabled={loading}>
+              {loading ? "Sending..." : "Send OTP"}
             </button>
-          </form>
-        ) : (
-          <form onSubmit={handleVerifyOtp} className="auth-form">
+          </>
+        )}
+
+        {step === "verify" && (
+          <form onSubmit={verifyOtp}>
             <div className="otp-container">
-              {otp.map((d, i) => (
+              {otp.map((v, i) => (
                 <input
                   key={i}
-                  id={`otp-${i}`}
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={1}
-                  value={d}
-                  onChange={(e) => handleOtpChange(i, e.target.value)}
-                  className="otp-input"
+                  maxLength="1"
+                  value={v}
+                  onChange={(e) =>
+                    handleOtpChange(i, e.target.value)
+                  }
                 />
               ))}
             </div>
-            <button type="submit" disabled={isLoading}>
-              <FiCheck /> Verify
+
+            <button disabled={loading}>
+              {loading ? "Verifying..." : "Verify OTP"}
             </button>
           </form>
         )}
 
-        {message.text && !verifiedRef.current && (
-          <div className={`message ${message.type}`}>
-            {message.text}
-          </div>
-        )}
+        {message && <p className="message error">{message}</p>}
       </div>
     </div>
   );

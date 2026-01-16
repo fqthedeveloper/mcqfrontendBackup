@@ -35,7 +35,8 @@ export default function Login() {
       }
     } catch (err) {
       setErrors({
-        nonField: err.message || "Login failed. Please check your credentials."
+        nonField:
+          err.message || "Login failed. Please check your credentials.",
       });
     } finally {
       setLoading(false);
@@ -47,81 +48,55 @@ export default function Login() {
       <div className="login-card">
         <div className="login-header">
           <div className="logo">
-            <div className="logo-circle">
-              <i className="fas fa-graduation-cap"></i>
-            </div>
+            <div className="logo-circle">🎓</div>
             <h2>Exam Management System</h2>
           </div>
           <h1>Welcome Back</h1>
           <p>Sign in to continue to your account</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="login-form">
+        <form className="login-form" onSubmit={handleSubmit}>
           {errors.nonField && (
-            <div className="alert alert-error">
-              <i className="fas fa-exclamation-circle"></i>
-              {errors.nonField}
-            </div>
+            <div className="alert-error">{errors.nonField}</div>
           )}
 
           <div className="form-group">
-            <label htmlFor="usernameOrEmail">
-              <i className="fas fa-user"></i> Email or Username
-            </label>
+            <label>Email or Username</label>
             <input
               type="text"
-              id="usernameOrEmail"
               placeholder="Enter your email or username"
               value={usernameOrEmail}
               onChange={(e) => setUsernameOrEmail(e.target.value)}
               required
-              className={errors.usernameOrEmail ? "error" : ""}
             />
-            {errors.usernameOrEmail && (
-              <div className="field-error">{errors.usernameOrEmail}</div>
-            )}
           </div>
 
           <div className="form-group">
-            <label htmlFor="password">
-              <i className="fas fa-lock"></i> Password
-            </label>
+            <label>Password</label>
             <input
               type="password"
-              id="password"
               placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className={errors.password ? "error" : ""}
             />
-            {errors.password && (
-              <div className="field-error">{errors.password}</div>
-            )}
           </div>
 
           <div className="form-options">
-            
-            
             <Link to="/password-reset" className="forgot-password">
               Forgot Password?
             </Link>
           </div>
 
-          <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
-            {loading ? (
-              <>
-                <i className="fas fa-spinner fa-spin"></i> Signing In...
-              </>
-            ) : (
-              "Sign In"
-            )}
-            
+          <button
+            type="submit"
+            className="login-button"
+            disabled={loading}
+          >
+            {loading ? "Signing In..." : "Sign In"}
           </button>
-        
         </form>
       </div>
-
     </div>
   );
 }
