@@ -16,7 +16,8 @@ import Footer from "./components/Shared/Footer";
 
 /* Auth */
 import Login from "./components/Auth/Login";
-import PasswordReset from "./components/Auth/PasswordReset";
+import ForgotPassword from "./components/Auth/ForgotPassword";
+import ResetPassword from "./components/Auth/ResetPassword";
 import ForcePasswordChange from "./components/Auth/ForcePasswordChange";
 import VerifyOTP from "./components/Auth/VerifyOTP";
 
@@ -102,11 +103,19 @@ function App() {
                 path="/password-reset"
                 element={
                   <AuthRoute>
-                    <PasswordReset />
+                    <ForgotPassword />
                   </AuthRoute>
                 }
               />
-              <Route path="/verify-otp" element={<VerifyOTP />} />
+              <Route
+                path="/reset-password/:token"
+                element={
+                  <AuthRoute>
+                    <ResetPassword />
+                  </AuthRoute>
+                }
+              />
+              <Route path="/email-verify" element={<VerifyOTP />} />
 
               {/* ===== FORCE PASSWORD ===== */}
               <Route

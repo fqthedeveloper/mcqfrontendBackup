@@ -32,12 +32,10 @@ export const stopIdleTimer = () => {
 };
 
 export const login = async (credentials) => {
-  // Use the shared `post` helper so callers elsewhere keep consistent behavior
   const data = await post('/mcq/login/', credentials);
   if (data?.token) {
     setToken(data.token);
   }
-  // store user payload if provided
   if (data) {
     setUser(data);
   }

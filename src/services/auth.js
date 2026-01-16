@@ -104,3 +104,16 @@ export const initAuth = () => {
 
 // Call init on module load
 initAuth();
+
+export const forgotPassword = (email) => {
+  return post("/mcq/forgot-password/", { email });
+};
+
+// Reset password from email link
+export const resetPasswordWithToken = (token, newPassword) => {
+  return post("/mcq/reset-password/", {
+    token,
+    new_password: newPassword,
+  });
+};
+

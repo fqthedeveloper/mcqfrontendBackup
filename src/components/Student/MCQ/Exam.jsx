@@ -21,7 +21,7 @@ const formatTime = (sec) => {
   return `${m}:${s}`;
 };
 
-/* ================= SAFE FULLSCREEN HELPERS ================= */
+/* ================= FULLSCREEN SAFE ================= */
 
 const isFullscreen = () =>
   document.fullscreenElement ||
@@ -53,7 +53,6 @@ const exitFullscreenSafe = () => {
   } catch {}
 };
 
-
 /* ================= EXAM ================= */
 
 export default function Exam() {
@@ -69,15 +68,13 @@ export default function Exam() {
   const [started, setStarted] = useState(false);
   const [warnings, setWarnings] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   const timerRef = useRef(null);
   const submittedRef = useRef(false);
+  const answersRef = useRef({});
   const warningLock = useRef(false);
 
-  /* 🔥 NEW: LIVE ANSWER REF (CRITICAL FIX) */
-  const answersRef = useRef({});
-
-  /* 🔥 NEW: KEEP REF IN SYNC */
   useEffect(() => {
     answersRef.current = answers;
   }, [answers]);
@@ -85,7 +82,7 @@ export default function Exam() {
   /* ================= LOAD SESSION ================= */
 
   useEffect(() => {
-    if (!sessionId || sessionId === "undefined") {
+    if (!sessionId) {
       navigate("/student/exams");
       return;
     }
@@ -95,25 +92,24 @@ export default function Exam() {
   const loadSession = async () => {
     try {
       setLoading(true);
-      const sessionData = await authGet(`/mcq/sessions/${sessionId}/`);
+      const data = await authGet(`/mcq/sessions/${sessionId}/`);
 
-      if (sessionData.is_completed) {
-        Swal.fire("Already Submitted", "", "info");
-        navigate("/student/exams");
+      if (data.is_completed) {
+        navigate(`/student/results/${data.id}`);
         return;
       }
 
-      setSession(sessionData);
-      setExam(sessionData.exam);
-      setRemaining(sessionData.exam.duration * 60);
+      setSession(data);
+      setExam(data.exam);
+      setRemaining(data.exam.duration * 60);
 
-      const qList = shuffleArray(sessionData.exam.question_details || []);
+      const qList = shuffleArray(data.exam.question_details || []);
       setQuestions(qList);
 
       const init = {};
       qList.forEach((q) => (init[q.id] = ""));
       setAnswers(init);
-      answersRef.current = init; // 🔥 sync initial
+      answersRef.current = init;
     } catch {
       navigate("/student/exams");
     } finally {
@@ -139,7 +135,7 @@ export default function Exam() {
     return () => clearInterval(timerRef.current);
   }, [started]);
 
-  /* ================= WARNING HANDLER ================= */
+  /* ================= WARNINGS ================= */
 
   const addWarning = (reason) => {
     if (warningLock.current || submittedRef.current) return;
@@ -147,9 +143,15 @@ export default function Exam() {
 
     setWarnings((w) => {
       const next = w + 1;
+
       if (next >= 3) {
-        Swal.fire("Exam Auto Submitted", reason, "error")
-          .then(() => handleSubmit("anti_cheat"));
+        Swal.fire({
+          title: "Exam Auto Submitted",
+          text: reason,
+          icon: "error",
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+        }).then(() => handleSubmit("warnings"));
       } else {
         Swal.fire(`Warning ${next}/3`, reason, "warning")
           .then(() => enterFullscreenSafe());
@@ -157,60 +159,64 @@ export default function Exam() {
       return next;
     });
 
-    setTimeout(() => (warningLock.current = false), 1500);
+    setTimeout(() => (warningLock.current = false), 1000);
   };
 
   /* ================= STRICT MODE ================= */
 
   useEffect(() => {
     if (!started || exam?.mode !== "strict") return;
-    const onBlur = () => addWarning("Tab switch detected");
-    const onResize = () => addWarning("Screen resize detected");
+
+    const onBlur = () => addWarning("Tab switching detected");
+    const onResize = () => addWarning("Screen resized");
+
     window.addEventListener("blur", onBlur);
     window.addEventListener("resize", onResize);
+
     return () => {
       window.removeEventListener("blur", onBlur);
       window.removeEventListener("resize", onResize);
     };
   }, [started, exam]);
 
-  /* ================= FULLSCREEN ================= */
-
   useEffect(() => {
     if (!started || exam?.mode !== "strict") return;
-    const onFsChange = () => {
+
+    const onFs = () => {
       if (!isFullscreen() && !submittedRef.current) {
         addWarning("Fullscreen exited");
       }
     };
-    document.addEventListener("fullscreenchange", onFsChange);
-    return () => document.removeEventListener("fullscreenchange", onFsChange);
+
+    document.addEventListener("fullscreenchange", onFs);
+    return () =>
+      document.removeEventListener("fullscreenchange", onFs);
   }, [started, exam]);
 
-  /* ================= SUBMIT (FIXED) ================= */
+  /* ================= SUBMIT (BUG FIX CORE) ================= */
 
   const handleSubmit = async (reason = "manual") => {
     if (submittedRef.current) return;
-    submittedRef.current = true;
 
+    submittedRef.current = true;
+    setSubmitting(true);
     clearInterval(timerRef.current);
     exitFullscreenSafe();
 
-    try {
-      /* 🔥 USE REF — ALWAYS LATEST ANSWERS */
-      const payload = Object.entries(answersRef.current).map(([q, a]) => ({
-        question: Number(q),
-        selected_answers: a,
-      }));
+    const payload = Object.entries(answersRef.current).map(([q, a]) => ({
+      question: Number(q),
+      selected_answers: a,
+    }));
 
+    try {
       await authPost(`/mcq/sessions/${session.id}/submit/`, {
         terminate_reason: reason,
         answers: payload,
       });
-
-      navigate(`/student/results/${session.id}`);
     } catch {
-      Swal.fire("Submission Failed", "Please contact admin", "error");
+      // even if backend fails → still redirect
+    } finally {
+      navigate(`/student/results/${session.id}`);
     }
   };
 
@@ -241,18 +247,16 @@ export default function Exam() {
 
   /* ================= UI ================= */
 
-  if (loading) return <div className="exam-loading">Loading Exam…</div>;
+  if (loading) return <div className="exam-loading">Loading…</div>;
+
   if (!started) {
     return (
       <div className="exam-start">
         <div className="start-card">
           <h1>{exam.title}</h1>
-          <p>⏱ Duration: {exam.duration} min</p>
-          <p>📝 Questions: {questions.length}</p>
-          <p>🔒 Mode: {exam.mode}</p>
-          <button className="start-card-button" onClick={startExam}>
-            Start Exam
-          </button>
+          <p>⏱ {exam.duration} min</p>
+          <p>📝 {questions.length} Questions</p>
+          <button onClick={startExam}>Start Exam</button>
         </div>
       </div>
     );
@@ -261,69 +265,58 @@ export default function Exam() {
   const q = questions[currentIndex];
 
   return (
-    <div className="exam-wrapper">
+    <div className={`exam-wrapper ${submitting ? "locked" : ""}`}>
       <div className="exam-header">
         <h2>{exam.title}</h2>
-        <div className="exam-meta">
+        <div>
           <span className="timer">{formatTime(remaining)}</span>
           <span>{currentIndex + 1}/{questions.length}</span>
-          {exam.mode === "strict" && (
-            <span className="warning">⚠ {warnings}/3</span>
-          )}
+          {exam.mode === "strict" && <span>⚠ {warnings}/3</span>}
         </div>
       </div>
 
       <div className="question-box">
         <QuestionCard
           question={q}
-          index={currentIndex}
           selectedAnswers={answers[q.id]}
-          onChange={(qid, val) =>
-            setAnswers((prev) => {
-              const updated = { ...prev, [qid]: val };
-              answersRef.current = updated; // 🔥 INSTANT UPDATE
-              return updated;
-            })
-          }
+          onChange={(qid, val) => {
+            if (submittedRef.current) return;
+            setAnswers((p) => {
+              const u = { ...p, [qid]: val };
+              answersRef.current = u;
+              return u;
+            });
+          }}
         />
       </div>
 
       <div className="nav-buttons">
-        <button disabled={currentIndex === 0}
-          onClick={() => setCurrentIndex((i) => i - 1)}>← Previous</button>
+        <button disabled={currentIndex === 0 || submitting}
+          onClick={() => setCurrentIndex(i => i - 1)}>← Previous</button>
+
         {currentIndex < questions.length - 1 ? (
-          <button onClick={() => setCurrentIndex((i) => i + 1)}>Next →</button>
+          <button disabled={submitting}
+            onClick={() => setCurrentIndex(i => i + 1)}>Next →</button>
         ) : (
-          <button className="submit-btn"
+          <button className="submit-btn" disabled={submitting}
             onClick={() => handleSubmit("manual")}>
-            Submit Exam
+            {submitting ? "Submitting…" : "Submit Exam"}
           </button>
         )}
       </div>
 
-      {/* ================= CSS ================= */}
       <style>{`
-        *{box-sizing:border-box}
-        body{background:#f4f6fb}
-        .exam-loading{text-align:center;padding:60px;font-size:18px}
-        .exam-start{min-height:85vh;display:flex;align-items:center;justify-content:center}
-        .start-card{background:#fff;padding:32px;border-radius:20px;width:100%;max-width:420px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.1)}
-        .start-card p{color:#475569}
-        .start-card-button{margin-top:20px;padding:14px;width:100%;border-radius:12px;border:none;background:#2563eb;color:#fff;font-size:16px}
+        .locked { pointer-events:none; opacity:.6 }
         .exam-wrapper{max-width:900px;margin:auto;padding:16px}
-        .exam-header{background:#fff;padding:16px 20px;border-radius:14px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 6px 20px rgba(0,0,0,.08)}
-        .exam-meta span{margin-left:12px;font-weight:600}
-        .timer{color:#16a34a}
-        .warning{color:#dc2626}
-        .question-box{background:#fff;padding:24px;border-radius:16px;margin-top:16px;box-shadow:0 6px 20px rgba(0,0,0,.08)}
+        .exam-header{background:#fff;padding:16px;border-radius:14px;
+          display:flex;justify-content:space-between}
+        .timer{color:#16a34a;font-weight:700}
+        .question-box{background:#fff;padding:20px;border-radius:16px;margin-top:16px}
         .nav-buttons{display:flex;gap:12px;margin-top:20px}
-        .nav-buttons button{flex:1;padding:14px;border-radius:12px;border:none;background:#2563eb;color:#fff}
-        .nav-buttons button:disabled{background:#94a3b8}
+        .nav-buttons button{flex:1;padding:14px;border-radius:12px;
+          border:none;background:#2563eb;color:#fff}
         .submit-btn{background:#dc2626}
-        @media(max-width:600px){
-          .exam-header{flex-direction:column;align-items:flex-start;gap:8px}
-          .nav-buttons{flex-direction:column}
-        }
+        button:disabled{background:#94a3b8}
       `}</style>
     </div>
   );

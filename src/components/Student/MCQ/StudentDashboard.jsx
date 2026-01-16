@@ -113,6 +113,21 @@ export default function StudentDashboard() {
               </p>
             </div>
           </div>
+
+          {/* ✅ VERIFY NOW BUTTON (ONLY IF NOT VERIFIED) */}
+          {!profile.is_verified && (
+            <div className="verify-box">
+              <p className="verify-warning">
+                ⚠ Your email is not verified. Please verify to continue securely.
+              </p>
+              <button
+                className="verify-btn"
+                onClick={() => navigate("/email-verify")}
+              >
+                Verify Now
+              </button>
+            </div>
+          )}
         </motion.div>
 
         {/* ACTION CARDS */}
@@ -207,6 +222,34 @@ export default function StudentDashboard() {
 
         .verified { color: #16a34a; }
         .not-verified { color: #dc2626; }
+
+        .verify-box {
+          margin-top: 18px;
+          padding: 14px;
+          background: #fff7ed;
+          border-radius: 10px;
+          border: 1px solid #fed7aa;
+        }
+
+        .verify-warning {
+          color: #9a3412;
+          font-size: 14px;
+          margin-bottom: 10px;
+        }
+
+        .verify-btn {
+          background: #f97316;
+          color: white;
+          border: none;
+          padding: 10px 16px;
+          border-radius: 8px;
+          cursor: pointer;
+          font-weight: 600;
+        }
+
+        .verify-btn:hover {
+          background: #ea580c;
+        }
 
         .card-grid {
           display: grid;
