@@ -4,66 +4,102 @@ import { authPost } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import "../../styles/CSS/OTP.css";
 
+const RESEND_TIME = 30; // seconds
+
 export default function OTPPage() {
   const navigate = useNavigate();
-  const { user, updateUser } = useAuth();
+  const { user, updateUserProfile } = useAuth();
 
-  const [step, setStep] = useState("send");
+  const [step, setStep] = useState("send"); // send | verify
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [timer, setTimer] = useState(0);
 
-  const verifiedRef = useRef(false);   // 🔥 OTP already verified
-  const submittingRef = useRef(false); // 🔥 block double submit
+  const otpRefs = useRef([]);
 
   /* ================= INIT ================= */
   useEffect(() => {
     if (user?.email) setEmail(user.email);
 
-    if (sessionStorage.getItem("OTP_IN_PROGRESS") === "1") {
+    const savedStep = sessionStorage.getItem("OTP_STEP");
+    const savedTimer = sessionStorage.getItem("OTP_TIMER");
+
+    if (savedStep === "verify") {
       setStep("verify");
+      if (savedTimer) setTimer(Number(savedTimer));
     }
   }, [user]);
 
-  /* ================= SEND OTP ================= */
-  const sendOtp = async () => {
+  /* ================= TIMER ================= */
+  useEffect(() => {
+    if (timer <= 0) return;
+
+    sessionStorage.setItem("OTP_TIMER", timer);
+
+    const id = setTimeout(() => {
+      setTimer((t) => t - 1);
+    }, 1000);
+
+    return () => clearTimeout(id);
+  }, [timer]);
+
+  /* ================= SEND / RESEND OTP ================= */
+  const sendOtp = async (isResend = false) => {
     if (loading) return;
 
     setLoading(true);
     setMessage("");
 
     try {
-      await authPost("/mcq/send-otp/", { email });
-      sessionStorage.setItem("OTP_IN_PROGRESS", "1");
-      setStep("verify");
-    } catch {
-      setMessage("Failed to send OTP");
+      const res = await authPost("/mcq/send-otp/", { email });
+
+      if (res?.success === true) {
+        sessionStorage.setItem("OTP_STEP", "verify");
+        setStep("verify");
+        setOtp(["", "", "", "", "", ""]);
+        setTimer(RESEND_TIME);
+
+        setTimeout(() => {
+          otpRefs.current[0]?.focus();
+        }, 200);
+
+        if (isResend) {
+          setMessage("OTP resent successfully");
+        }
+      } else {
+        setMessage(res?.message || "OTP not sent");
+      }
+    } catch (err) {
+      setMessage(err?.error || "OTP not sent");
     } finally {
       setLoading(false);
     }
   };
 
   /* ================= OTP INPUT ================= */
-  const handleOtpChange = (i, value) => {
+  const handleOtpChange = (index, value) => {
     if (!/^\d?$/.test(value)) return;
+
     const next = [...otp];
-    next[i] = value;
+    next[index] = value;
     setOtp(next);
+
+    if (value && index < 5) {
+      otpRefs.current[index + 1]?.focus();
+    }
   };
 
   /* ================= VERIFY OTP ================= */
   const verifyOtp = async (e) => {
     e.preventDefault();
-
-    // 🔥 BLOCK ALL DUPLICATES
-    if (submittingRef.current || verifiedRef.current) return;
-    submittingRef.current = true;
+    if (loading) return;
 
     const code = otp.join("");
+
     if (code.length !== 6) {
       setMessage("Enter 6 digit OTP");
-      submittingRef.current = false;
       return;
     }
 
@@ -71,60 +107,93 @@ export default function OTPPage() {
     setMessage("");
 
     try {
-      await authPost("/mcq/verify-otp/", { email, otp: code });
+      const res = await authPost("/mcq/verify-otp/", {
+        email,
+        otp: code,
+      });
 
-      // ✅ MARK VERIFIED ONCE
-      verifiedRef.current = true;
-      sessionStorage.removeItem("OTP_IN_PROGRESS");
-
-      updateUser({ ...user, is_verified: true });
-
-      // 🔥 IMMEDIATE REDIRECT (NO UI UPDATE AFTER THIS)
-      navigate("/student", { replace: true });
-    } catch (err) {
-      // ❌ IGNORE ERRORS AFTER SUCCESS
-      if (!verifiedRef.current) {
-        setMessage("Invalid OTP");
-        submittingRef.current = false;
+      if (res?.success === true) {
+        updateUserProfile({ is_verified: true });
+        sessionStorage.removeItem("OTP_STEP");
+        sessionStorage.removeItem("OTP_TIMER");
+        navigate("/student", { replace: true });
+      } else {
+        setMessage(res?.error || "Invalid OTP");
       }
+    } catch (err) {
+      setMessage(err?.error || "Invalid OTP");
     } finally {
       setLoading(false);
     }
   };
 
+  /* ================= CHANGE EMAIL ================= */
+  const resetFlow = () => {
+    sessionStorage.removeItem("OTP_STEP");
+    sessionStorage.removeItem("OTP_TIMER");
+    setStep("send");
+    setOtp(["", "", "", "", "", ""]);
+    setTimer(0);
+    setMessage("");
+  };
+
   return (
     <div className="auth-container">
       <div className="auth-card">
-        <h2>{step === "send" ? "Verify Your Email" : "Enter OTP"}</h2>
+        <h2>{step === "send" ? "Verify Email" : "Enter OTP"}</h2>
 
+        {/* ================= SEND STEP ================= */}
         {step === "send" && (
           <>
             <input type="email" value={email} readOnly />
-            <button onClick={sendOtp} disabled={loading}>
+            <button onClick={() => sendOtp(false)} disabled={loading}>
               {loading ? "Sending..." : "Send OTP"}
             </button>
           </>
         )}
 
+        {/* ================= VERIFY STEP ================= */}
         {step === "verify" && (
-          <form onSubmit={verifyOtp}>
-            <div className="otp-container">
-              {otp.map((v, i) => (
-                <input
-                  key={i}
-                  maxLength="1"
-                  value={v}
-                  onChange={(e) =>
-                    handleOtpChange(i, e.target.value)
-                  }
-                />
-              ))}
-            </div>
+          <>
+            <form onSubmit={verifyOtp}>
+              <div className="otp-container">
+                {otp.map((v, i) => (
+                  <input
+                    key={i}
+                    ref={(el) => (otpRefs.current[i] = el)}
+                    maxLength="1"
+                    value={v}
+                    onChange={(e) =>
+                      handleOtpChange(i, e.target.value)
+                    }
+                  />
+                ))}
+              </div>
 
-            <button disabled={loading}>
-              {loading ? "Verifying..." : "Verify OTP"}
-            </button>
-          </form>
+              <button type="submit" disabled={loading}>
+                {loading ? "Verifying..." : "Verify OTP"}
+              </button>
+            </form>
+
+            {/* ================= RESEND ================= */}
+            <div style={{ marginTop: "12px", textAlign: "center" }}>
+              {timer > 0 ? (
+                <p style={{ fontSize: "14px", color: "#666" }}>
+                  Resend OTP in {timer}s
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() => sendOtp(true)}
+                  disabled={loading}
+                >
+                  Resend OTP
+                </button>
+              )}
+
+            </div>
+          </>
         )}
 
         {message && <p className="message error">{message}</p>}

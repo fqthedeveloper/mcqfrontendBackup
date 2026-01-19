@@ -65,11 +65,6 @@ export default function Header() {
           <div className="header-right">
             {user ? (
               <>
-                <button className="icon-btn">
-                  <i className="fas fa-bell" />
-                  <span className="badge">3</span>
-                </button>
-
                 <div
                   className="profile"
                   onClick={() => setUserMenu(!userMenu)}
