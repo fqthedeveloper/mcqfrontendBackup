@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { use, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { authGet } from "../../../services/api";
 import "../../../styles/CSS/Result.css";
@@ -6,6 +6,10 @@ import "../../../styles/CSS/Result.css";
 export default function AdminResultList() {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    document.title = "All Students Results - Admin";
+  }, []);
 
   useEffect(() => {
     authGet("/mcq/results/")
@@ -18,6 +22,8 @@ export default function AdminResultList() {
   if (loading) {
     return <div className="result-loading">Loading results…</div>;
   }
+
+
 
   return (
     <div className="result-container">

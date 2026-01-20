@@ -34,6 +34,10 @@ export default function AdminExamList() {
     }
   };
 
+  useEffect(() => {
+    document.title = "Exam List - Admin";
+  }, []);
+
   /* ================= PUBLISH / UNPUBLISH ================= */
 
   const togglePublish = async (exam) => {

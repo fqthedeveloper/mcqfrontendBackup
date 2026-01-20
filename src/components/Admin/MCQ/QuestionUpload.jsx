@@ -40,7 +40,7 @@ export default function AdminQuestionManager() {
   /* ================= LOAD SUBJECTS ================= */
   useEffect(() => {
     loadSubjects();
-    document.title = "Question Upload - MCQ Admin";
+    document.title = "Question Upload - Admin";
   }, []);
 
   const loadSubjects = async () => {

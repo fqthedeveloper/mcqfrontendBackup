@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { use, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Swal from "sweetalert2";
 import { authGet, authPut, authPost } from "../../../services/api";
@@ -68,6 +68,10 @@ export default function EditExamForm() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+      document.title = "Edit Exam - Admin";
+    }, []);
 
   /* ================= SUBJECT CHANGE ================= */
   const handleSubjectChange = async (subjectId) => {

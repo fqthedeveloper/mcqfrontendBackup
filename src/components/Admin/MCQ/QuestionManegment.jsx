@@ -55,7 +55,7 @@ export default function QuestionManagement() {
   /* ================= LOAD QUESTIONS ================= */
   useEffect(() => {
     loadQuestions(pageUrl);
-    document.title = "Question Management - MCQ Admin";
+    document.title = "Question Management - Admin";
   }, [pageUrl]);
 
   const loadQuestions = async (url) => {

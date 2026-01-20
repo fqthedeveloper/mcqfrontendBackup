@@ -137,6 +137,10 @@ export default function OTPPage() {
     setMessage("");
   };
 
+  useEffect(() => {
+    document.title = "Verify OTP";
+  }, []);
+
   return (
     <div className="auth-container">
       <div className="auth-card">

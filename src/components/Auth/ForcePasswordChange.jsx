@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import '../../styles/CSS/ChangePassword.css';
 
-
 export default function ChangePasswordPage() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -13,6 +12,21 @@ export default function ChangePasswordPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { logout } = useAuth();
+
+  /* ================= ADD ONLY (NO CHANGE) ================= */
+  const passwordRules = {
+    length: newPassword.length >= 8,
+    upper: /[A-Z]/.test(newPassword),
+    lower: /[a-z]/.test(newPassword),
+    number: /[0-9]/.test(newPassword),
+    special: /[^A-Za-z0-9]/.test(newPassword),
+  };
+
+  const strengthCount = Object.values(passwordRules).filter(Boolean).length;
+
+  const strengthLabel =
+    strengthCount <= 2 ? 'Weak' : strengthCount <= 4 ? 'Medium' : 'Strong';
+  /* ======================================================= */
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -50,24 +64,9 @@ export default function ChangePasswordPage() {
     <div className="change-password-container">
       <div className="change-password-card">
         <h2 className="change-password-title">Change Password</h2>
-        
-        {error && (
-          <div className="alert error">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M11.953 2C6.465 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.493 2 11.953 2zM13 17h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-            </svg>
-            <span>{error}</span>
-          </div>
-        )}
-        
-        {success && (
-          <div className="alert success">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm-1 15l-5-5 1.414-1.414L11 14.172l7.586-7.586L20 8l-9 9z"/>
-            </svg>
-            <span>{success}</span>
-          </div>
-        )}
+
+        {error && <div className="alert error">{error}</div>}
+        {success && <div className="alert success">{success}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="input-group">
@@ -80,11 +79,28 @@ export default function ChangePasswordPage() {
               required
               minLength={8}
               placeholder="At least 8 characters"
-              aria-describedby="password-requirements"
             />
-            <p id="password-requirements" className="input-hint">
-              Minimum 8 characters
+
+            {/* ===== ADD ONLY: STRENGTH UI ===== */}
+            <div className="strength-bar">
+              <div
+                className={`strength-fill ${strengthLabel.toLowerCase()}`}
+                style={{ width: `${(strengthCount / 5) * 100}%` }}
+              />
+            </div>
+
+            <p className={`strength-text ${strengthLabel.toLowerCase()}`}>
+              Password Strength: {strengthLabel}
             </p>
+
+            <ul className="password-rules">
+              <li className={passwordRules.length ? "ok" : ""}>✔ Minimum 8 characters</li>
+              <li className={passwordRules.upper ? "ok" : ""}>✔ One uppercase letter</li>
+              <li className={passwordRules.lower ? "ok" : ""}>✔ One lowercase letter</li>
+              <li className={passwordRules.number ? "ok" : ""}>✔ One number</li>
+              <li className={passwordRules.special ? "ok" : ""}>✔ One special character</li>
+            </ul>
+            {/* ===== END ADD ===== */}
           </div>
 
           <div className="input-group">
@@ -104,16 +120,8 @@ export default function ChangePasswordPage() {
             type="submit"
             className="submit-btn"
             disabled={loading}
-            aria-busy={loading}
           >
-            {loading ? (
-              <>
-                <span className="spinner" aria-hidden="true"></span>
-                <span>Processing...</span>
-              </>
-            ) : (
-              'Change Password'
-            )}
+            {loading ? 'Processing...' : 'Change Password'}
           </button>
         </form>
       </div>

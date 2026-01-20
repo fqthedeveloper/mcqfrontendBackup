@@ -16,6 +16,10 @@ export default function ResultDetail() {
       .finally(() => setLoading(false));
   }, [sessionId]);
 
+  useEffect(() => {
+    document.title = "Exam Result Detail";
+  }, []);
+
   if (loading) return <div className="result-loading">Loading…</div>;
   if (!result) return <div>No result found</div>;
 
@@ -34,6 +38,11 @@ export default function ResultDetail() {
       <p>
         <strong>Score:</strong> {result.score}/{result.total_marks} (
         {percentage}%)
+      </p>
+      <p>
+        <strong>Status:</strong>{" "}
+        {result.pass_fail}
+        
       </p>
 
       <h2>Question Review</h2>

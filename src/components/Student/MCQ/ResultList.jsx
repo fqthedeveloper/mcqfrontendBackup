@@ -16,6 +16,10 @@ export default function StudentExamList() {
     load();
   }, []);
 
+useEffect(() => {
+    document.title = "My Exam Results";
+  }, []);
+
   if (loading) return <div className="result-loading">Loading…</div>;
 
   return (

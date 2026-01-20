@@ -33,12 +33,17 @@ import AdminExamList from "./components/Admin/MCQ/AdminExamList";
 import AdminResultList from "./components/Admin/MCQ/AdminResultList";
 import AdminResultDetail from "./components/Admin/MCQ/AdminResultDetail";
 
+// Admin Pacticle 
+import PracticalTaskList from "./components/Admin/Practical/PracticalTaskList";
+import PracticalTaskForm from "./components/Admin/Practical/PracticalTaskForm";
+
 /* Student */
 import StudentDashboard from "./components/Student/MCQ/StudentDashboard";
 import ExamList from "./components/Student/MCQ/ExamList";
 import Exam from "./components/Student/MCQ/Exam";
 import ResultList from "./components/Student/MCQ/ResultList";
 import ResultDetail from "./components/Student/MCQ/ResultDetail";
+import StudentProfile from "./components/Student/Profile/StudentProfile";
 
 import "./App.css";
 
@@ -211,6 +216,24 @@ function App() {
                 }
               />
               <Route
+                path="/admin/list-practicals"
+                element={
+                  <ProtectedRoute
+                    element={<PracticalTaskList />}
+                    roles={["admin"]}
+                  />
+                }
+              />
+              <Route
+                path="/admin/add-practical"
+                element={
+                  <ProtectedRoute
+                    element={<PracticalTaskForm />}
+                    roles={["admin"]}
+                  />
+                }
+              />
+              <Route
                 path="/admin/results/:sessionId" 
                 element={
                   <ProtectedRoute
@@ -261,6 +284,15 @@ function App() {
                 element={
                   <ProtectedRoute
                     element={<ResultDetail />}
+                    roles={["student"]}
+                  />
+                }
+              />
+              <Route
+                path="/student/profile"
+                element={
+                  <ProtectedRoute
+                    element={<StudentProfile />}
                     roles={["student"]}
                   />
                 }

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { resetPasswordWithToken } from "../../services/auth";
 import "../../styles/components/auth.css";
@@ -30,6 +30,10 @@ export default function ResetPassword() {
       setErr(error?.error || "Invalid or expired link");
     }
   };
+
+  useEffect(() => {
+    document.title = "Reset Password";
+  }, []);
 
   return (
     <div className="auth-container">

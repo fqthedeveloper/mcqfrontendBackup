@@ -4,7 +4,7 @@ import { authPost, authGet } from "../../../services/api";
 
 export default function AddStudent() {
   useEffect(() => {
-    document.title = "Add Student";
+    document.title = "Add Student - Admin";
   }, []);
 
   const [form, setForm] = useState({

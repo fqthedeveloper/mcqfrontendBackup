@@ -16,7 +16,7 @@ export default function AdminStudentList() {
   useEffect(() => {
     loadStudents();
     loadSubjects();
-    document.title = "Student List - MCQ Admin";
+    document.title = "Student List - Admin";
   }, []);
 
   const loadStudents = async () => {

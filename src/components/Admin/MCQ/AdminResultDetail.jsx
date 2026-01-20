@@ -9,6 +9,10 @@ export default function AdminResultDetail() {
   const [result, setResult] = useState(null);
 
   useEffect(() => {
+    document.title = `Result - ${result.student_name}`;
+  }, [result]);
+
+  useEffect(() => {
     authGet(`/mcq/results/session/${sessionId}/`)
       .then(setResult);
   }, [sessionId]);
@@ -16,6 +20,8 @@ export default function AdminResultDetail() {
   if (!result) {
     return <div className="result-loading">Loading result…</div>;
   }
+
+
 
   return (
     <div className="result-container">

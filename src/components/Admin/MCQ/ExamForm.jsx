@@ -99,6 +99,10 @@ export default function CreateExam() {
     navigate("/admin/exam-list");
   };
 
+
+  useEffect(() => {
+      document.title = "Create Exam - Admin";
+    }, []);
   /* ================= UI ================= */
   return (
     <div className="exam-wrapper">

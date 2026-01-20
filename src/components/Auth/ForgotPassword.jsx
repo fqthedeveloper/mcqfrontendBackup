@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { forgotPassword } from "../../services/auth";
 import "../../styles/components/auth.css";
 
@@ -19,6 +19,10 @@ export default function ForgotPassword() {
       setErr(error?.error || "Password reset not allowed");
     }
   };
+
+  useEffect(() => {
+    document.title = "Forgot Password";
+  }, []);  
 
   return (
     <div className="auth-container">
