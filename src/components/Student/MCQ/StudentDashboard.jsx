@@ -146,6 +146,12 @@ export default function StudentDashboard() {
               path: "/student/results",
             },
             {
+              icon: "📘",
+              title: "Practical Exam List",
+              desc: "View & start exams",
+              path: "/student/practicals",
+            },
+            {
               icon: "👤",
               title: "Profile",
               desc: "Account details",

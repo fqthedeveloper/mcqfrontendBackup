@@ -1,0 +1,125 @@
+/* ===== COMMON ===== */
+.practical-page,
+.practical-exam,
+.page-container {
+  max-width: 1100px;
+  margin: auto;
+  padding: 20px;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  font-size: 18px;
+}
+
+.empty {
+  text-align: center;
+  color: #777;
+}
+
+/* ===== STUDENT LIST ===== */
+.practical-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.practical-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 4px 10px rgba(0,0,0,.08);
+}
+
+.practical-card h3 {
+  margin-bottom: 8px;
+}
+
+.badge.success {
+  color: #16a34a;
+  font-weight: bold;
+}
+
+/* ===== EXAM ===== */
+.exam-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.timer {
+  font-size: 18px;
+  color: #dc2626;
+  font-weight: bold;
+}
+
+.exam-desc {
+  margin: 20px 0;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+/* ===== BUTTONS ===== */
+.btn-primary {
+  background: #2563eb;
+  color: white;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-danger {
+  background: #dc2626;
+  color: white;
+  padding: 10px 16px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-secondary {
+  background: #64748b;
+  color: white;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+/* ===== ADMIN TABLE ===== */
+.table-wrapper {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+th {
+  background: #f1f5f9;
+}
+
+/* ===== FORM ===== */
+.form-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.checkbox-row {
+  display: flex;
+  gap: 20px;
+}
+
+@media (max-width: 600px) {
+  .exam-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

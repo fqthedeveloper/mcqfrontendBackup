@@ -44,6 +44,9 @@ import Exam from "./components/Student/MCQ/Exam";
 import ResultList from "./components/Student/MCQ/ResultList";
 import ResultDetail from "./components/Student/MCQ/ResultDetail";
 import StudentProfile from "./components/Student/Profile/StudentProfile";
+import StudentPracticalList from "./components/Student/Practical/StudentPracticalList";
+import StudentPracticalExam from "./components/Student/Practical/StudentPracticalExam";
+
 
 import "./App.css";
 
@@ -297,6 +300,26 @@ function App() {
                   />
                 }
               />
+
+              <Route
+                path="/student/practicals"
+                element={
+                  <ProtectedRoute
+                    element={<StudentPracticalList />}
+                    roles={["student"]}
+                  />
+                }
+              />
+              <Route
+                path="/student/practical/:id"
+                element={
+                  <ProtectedRoute
+                    element={<StudentPracticalExam />}
+                    roles={["student"]}
+                  />
+                }
+              />
+
 
               {/* ===== DEFAULT ===== */}
               <Route path="/" element={<Navigate to="/login" replace />} />
