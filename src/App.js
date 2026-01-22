@@ -32,6 +32,7 @@ import EditExamForm from "./components/Admin/MCQ/EditExamForm";
 import AdminExamList from "./components/Admin/MCQ/AdminExamList";
 import AdminResultList from "./components/Admin/MCQ/AdminResultList";
 import AdminResultDetail from "./components/Admin/MCQ/AdminResultDetail";
+import PracticeQuestionMapper from "./components/Admin/Practice/PracticeQuestionMapper";
 
 // Admin Pacticle 
 import PracticalTaskList from "./components/Admin/Practical/PracticalTaskList";
@@ -46,6 +47,9 @@ import ResultDetail from "./components/Student/MCQ/ResultDetail";
 import StudentProfile from "./components/Student/Profile/StudentProfile";
 import StudentPracticalList from "./components/Student/Practical/StudentPracticalList";
 import StudentPracticalExam from "./components/Student/Practical/StudentPracticalExam";
+import PracticeHome from "./components/Student/Practice/PracticeHome";
+import PracticeExam from "./components/Student/Practice/PracticeExam";
+import PracticeResult from "./components/Student/Practice/PracticeResult";
 
 
 import "./App.css";
@@ -245,6 +249,17 @@ function App() {
                   />
                 }
               />
+              <Route
+                path="/admin/practice-map"
+                element={
+                  <ProtectedRoute
+                    element={<PracticeQuestionMapper />}
+                    roles={["admin"]}
+                  />
+                }
+              />
+
+
               {/* ===== STUDENT ===== */}
               <Route
                 path="/student"
@@ -320,6 +335,34 @@ function App() {
                 }
               />
 
+
+              <Route
+                path="/student/practice"
+                element={
+                  <ProtectedRoute
+                    element={<PracticeHome />}
+                    roles={["student"]}
+                  />
+                }
+              />
+              <Route
+                path="/student/practice/exam"
+                element={
+                  <ProtectedRoute
+                    element={<PracticeExam />}
+                    roles={["student"]}
+                  />
+                }
+              />
+              <Route
+                path="/student/practice/result"
+                element={
+                  <ProtectedRoute
+                    element={<PracticeResult />}
+                    roles={["student"]}
+                  />
+                }
+              />
 
               {/* ===== DEFAULT ===== */}
               <Route path="/" element={<Navigate to="/login" replace />} />

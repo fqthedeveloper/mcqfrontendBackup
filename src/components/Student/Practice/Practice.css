@@ -1,0 +1,312 @@
+.practice-container {
+  max-width: 900px;
+  margin: auto;
+  padding: 16px;
+}
+
+.practice-title {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.practice-card {
+  background: #fff;
+  padding: 20px;
+  border-radius: 14px;
+  box-shadow: 0 8px 30px rgba(0,0,0,.08);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.practice-card select,
+.practice-card button {
+  padding: 12px;
+  font-size: 15px;
+  border-radius: 10px;
+}
+
+.practice-start-btn {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+}
+
+.practice-secondary-btn {
+  background: #e5e7eb;
+  border: none;
+}
+
+.exam-header {
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+  margin-bottom: 14px;
+}
+
+.timer {
+  color: #dc2626;
+}
+
+.options button {
+  width: 100%;
+  margin: 8px 0;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  text-align: left;
+}
+
+.options button.active {
+  background: #eef2ff;
+  border-color: #2563eb;
+}
+
+.nav {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+
+.finish {
+  background: #16a34a;
+  color: #fff;
+  border: none;
+}
+
+@media (max-width: 600px) {
+  .practice-container {
+    padding: 10px;
+  }
+
+  .options button {
+    font-size: 14px;
+  }
+}
+
+/* ===============================
+   GLOBAL
+================================ */
+* {
+  box-sizing: border-box;
+}
+
+.practice-container {
+  min-height: 100vh;
+  padding: 24px;
+  background: radial-gradient(circle at top, #eef2ff, #f8fafc);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  animation: fadeIn 0.6s ease;
+}
+
+/* ===============================
+   EXAM CARD
+================================ */
+.practice-container.exam {
+  width: 100%;
+}
+
+.exam {
+  max-width: 900px;
+  width: 100%;
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 26px;
+  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.15);
+  animation: slideUp 0.6s ease;
+}
+
+/* ===============================
+   HEADER
+================================ */
+.exam-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  color: #fff;
+  padding: 16px 20px;
+  border-radius: 14px;
+  margin-bottom: 20px;
+  box-shadow: 0 12px 30px rgba(37, 99, 235, 0.35);
+}
+
+.timer {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  animation: pulse 1s infinite alternate;
+}
+
+.progress {
+  font-size: 14px;
+  opacity: 0.95;
+}
+
+/* ===============================
+   QUESTION
+================================ */
+.question-text {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 26px 0 20px;
+  color: #0f172a;
+  line-height: 1.6;
+  animation: fadeIn 0.4s ease;
+}
+
+/* ===============================
+   OPTIONS
+================================ */
+.options {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.options button {
+  width: 100%;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 2px solid transparent;
+  font-size: 15px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+}
+
+.options button:hover {
+  transform: translateY(-2px);
+  background: #eef2ff;
+}
+
+.options button.active {
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  color: #ffffff;
+  border-color: #1e40af;
+  box-shadow: 0 14px 35px rgba(37, 99, 235, 0.45);
+  transform: scale(1.02);
+}
+
+/* ===============================
+   NAVIGATION
+================================ */
+.nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.nav button {
+  padding: 12px 22px;
+  border-radius: 12px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  background: #e5e7eb;
+  color: #111827;
+  transition: all 0.25s ease;
+}
+
+.nav button:hover {
+  transform: translateY(-2px);
+  background: #dbeafe;
+}
+
+.nav button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.nav button.finish {
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+  color: #ffffff;
+  box-shadow: 0 10px 25px rgba(22, 163, 74, 0.45);
+}
+
+.nav button.finish:hover {
+  background: linear-gradient(135deg, #15803d, #16a34a);
+}
+
+/* ===============================
+   LOADER / ERROR
+================================ */
+.practice-loader,
+.practice-error {
+  text-align: center;
+  font-size: 18px;
+  color: #334155;
+  animation: fadeIn 0.5s ease;
+}
+
+/* ===============================
+   ANIMATIONS
+================================ */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  from {
+    opacity: 0.85;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ===============================
+   RESPONSIVE
+================================ */
+@media (max-width: 768px) {
+  .exam {
+    padding: 18px;
+  }
+
+  .question-text {
+    font-size: 17px;
+  }
+
+  .options button {
+    font-size: 14px;
+    padding: 14px;
+  }
+
+  .exam-header {
+    flex-direction: column;
+    gap: 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  .nav {
+    flex-direction: column;
+  }
+
+  .nav button {
+    width: 100%;
+  }
+}

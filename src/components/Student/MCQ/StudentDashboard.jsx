@@ -147,9 +147,9 @@ export default function StudentDashboard() {
             },
             {
               icon: "📘",
-              title: "Practical Exam List",
+              title: "Practice Exams",
               desc: "View & start exams",
-              path: "/student/practicals",
+              path: "/student/practice",
             },
             {
               icon: "👤",
