@@ -55,13 +55,13 @@ export default function PracticeExam() {
     };
 
     init();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => (cancelled = true);
   }, []);
 
-  /* ===== TIMER (SAFE) ===== */
+  
+
+
+  /* ===== TIMER ===== */
   useEffect(() => {
     if (!runId || finishedRef.current) return;
 
@@ -78,19 +78,18 @@ export default function PracticeExam() {
     return () => clearInterval(timer);
   }, [timeLeft, runId]);
 
+
+  useEffect(() => {
+      document.title = "Practice Exam";
+    }, []);
+
   /* ===== AUTOSAVE ===== */
   useEffect(() => {
     if (!runId || !questions.length) return;
 
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({
-        runId,
-        questions,
-        current,
-        answers,
-        timeLeft,
-      })
+      JSON.stringify({ runId, questions, current, answers, timeLeft })
     );
   }, [runId, current, answers, timeLeft, questions]);
 
@@ -110,56 +109,52 @@ export default function PracticeExam() {
     navigate(`/student/practice/result?run=${runId}`);
   };
 
-  if (loading) {
-    return <div className="practice-loader">Loading exam…</div>;
-  }
-
-  if (!questions.length) {
-    return <div className="practice-loader">No questions found</div>;
-  }
+  if (loading) return <div className="practice-loader">Loading exam…</div>;
+  if (!questions.length) return <div className="practice-loader">No questions found</div>;
 
   const q = questions[current];
 
   return (
-    <div className="practice-container exam">
-      <div className="exam-header">
-        <div className="timer">
-          ⏱ {Math.floor(timeLeft / 60)}:
-          {String(timeLeft % 60).padStart(2, "0")}
+    <div className="practice-exam-page">
+      <div className="practice-exam-card">
+        <div className="exam-header">
+          <div className="timer">
+            ⏱ {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, "0")}
+          </div>
+          <div className="progress">
+            Question {current + 1} / {questions.length}
+          </div>
         </div>
-        <div className="progress">
-          Question {current + 1} / {questions.length}
+
+        <div className="question-text">
+          {current + 1}. {q.text}
         </div>
-      </div>
 
-      <h3 className="question-text">
-        {current + 1}. {q.text}
-      </h3>
+        <div className="options">
+          {q.options.map(([k, v]) => (
+            <button
+              key={k}
+              className={answers[q.id] === k ? "active" : ""}
+              onClick={() => selectOption(q.id, k)}
+            >
+              {k}. {v}
+            </button>
+          ))}
+        </div>
 
-      <div className="options">
-        {q.options.map(([k, v]) => (
-          <button
-            key={k}
-            className={answers[q.id] === k ? "active" : ""}
-            onClick={() => selectOption(q.id, k)}
-          >
-            {k}. {v}
+        <div className="nav">
+          <button disabled={current === 0} onClick={() => setCurrent(c => c - 1)}>
+            Prev
           </button>
-        ))}
-      </div>
 
-      <div className="nav">
-        <button disabled={current === 0} onClick={() => setCurrent((c) => c - 1)}>
-          Prev
-        </button>
-
-        {current < questions.length - 1 ? (
-          <button onClick={() => setCurrent((c) => c + 1)}>Next</button>
-        ) : (
-          <button className="finish" onClick={finish}>
-            Finish
-          </button>
-        )}
+          {current < questions.length - 1 ? (
+            <button onClick={() => setCurrent(c => c + 1)}>Next</button>
+          ) : (
+            <button className="finish" onClick={finish}>
+              Finish
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

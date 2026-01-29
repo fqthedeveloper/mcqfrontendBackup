@@ -208,3 +208,18 @@ button:disabled {
     padding: 18px;
   }
 }
+
+/* ===== FORCE HIDE HEADER DURING EXAM ===== */
+
+body.exam-mode header,
+body.exam-mode nav,
+body.exam-mode .navbar,
+body.exam-mode .main-header,
+body.exam-mode .topbar {
+  display: none !important;
+}
+
+body.exam-mode {
+  overflow: hidden !important;
+  user-select: none;
+}

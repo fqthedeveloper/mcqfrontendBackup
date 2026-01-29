@@ -1,254 +1,289 @@
+/* =====================================================
+   GLOBAL RESET
+===================================================== */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #f8fafc;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, Ubuntu, sans-serif;
+}
+
+/* =====================================================
+   MAIN CONTAINER (Home + Result)
+===================================================== */
 .practice-container {
-  max-width: 900px;
-  margin: auto;
-  padding: 16px;
-}
-
-.practice-title {
-  text-align: center;
-  margin-bottom: 20px;
-}
-
-.practice-card {
-  background: #fff;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 28px 16px 60px;
+  justify-content: center;
+  align-items: center;
   padding: 20px;
-  border-radius: 14px;
-  box-shadow: 0 8px 30px rgba(0,0,0,.08);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  background: radial-gradient(circle at top, #eef2ff, #f8fafc);
+  
 }
 
-.practice-card select,
-.practice-card button {
-  padding: 12px;
-  font-size: 15px;
-  border-radius: 10px;
+/* =====================================================
+   TITLES
+===================================================== */
+.practice-title {
+  font-size: 26px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 22px;
 }
 
-.practice-start-btn {
-  background: #2563eb;
-  color: #fff;
-  border: none;
+/* =====================================================
+   CARD (Home / Result / Exam shell)
+===================================================== */
+.practice-card {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 26px;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
+  max-width: 720px;
 }
 
-.practice-secondary-btn {
-  background: #e5e7eb;
-  border: none;
+/* Home card center */
+.practice-container > .practice-card {
+  margin-top: 10px;
 }
 
-.exam-header {
-  display: flex;
-  justify-content: space-between;
-  font-weight: bold;
-  margin-bottom: 14px;
+/* =====================================================
+   FORM ELEMENTS (HOME)
+===================================================== */
+.practice-card label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 6px;
+  display: block;
 }
 
-.timer {
-  color: #dc2626;
-}
-
-.options button {
+.practice-card select {
   width: 100%;
-  margin: 8px 0;
-  padding: 14px;
+  padding: 12px 14px;
   border-radius: 10px;
-  border: 1px solid #ddd;
-  text-align: left;
+  border: 1px solid #cbd5f5;
+  font-size: 15px;
+  margin-bottom: 16px;
+  background: #fff;
 }
 
-.options button.active {
-  background: #eef2ff;
+.practice-card select:focus {
+  outline: none;
   border-color: #2563eb;
 }
 
-.nav {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 20px;
-}
-
-.finish {
-  background: #16a34a;
-  color: #fff;
+/* =====================================================
+   BUTTONS
+===================================================== */
+.practice-start-btn {
+  width: 100%;
+  padding: 13px;
+  border-radius: 12px;
   border: none;
+  font-size: 15px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  color: #fff;
+  cursor: pointer;
+  margin-top: 10px;
 }
 
-@media (max-width: 600px) {
-  .practice-container {
-    padding: 10px;
-  }
-
-  .options button {
-    font-size: 14px;
-  }
+.practice-start-btn:hover {
+  opacity: 0.95;
 }
 
-/* ===============================
-   GLOBAL
-================================ */
-* {
-  box-sizing: border-box;
+.practice-secondary-btn {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  border-radius: 12px;
+  border: none;
+  background: #e5e7eb;
+  font-weight: 600;
+  cursor: pointer;
 }
 
-.practice-container {
-  min-height: 100vh;
-  padding: 24px;
-  background: radial-gradient(circle at top, #eef2ff, #f8fafc);
+/* =====================================================
+   EXAM PAGE BACKGROUND
+===================================================== */
+.practice-exam-page {
+  min-height: calc(100vh - 64px);
   display: flex;
   justify-content: center;
   align-items: center;
-  animation: fadeIn 0.6s ease;
+  padding: 20px;
+  background: radial-gradient(circle at top, #eef2ff, #f8fafc);
 }
 
-/* ===============================
+.practice-page {
+  min-height: calc(100vh - 64px); /* navbar safe */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  background: radial-gradient(circle at top, #eef2ff, #f8fafc);
+}
+
+/* =====================================================
    EXAM CARD
-================================ */
-.practice-container.exam {
-  width: 100%;
-}
+===================================================== */
 
-.exam {
-  max-width: 900px;
+.practice-exam-card {
   width: 100%;
+  max-width: 900px;
   background: #ffffff;
   border-radius: 20px;
-  padding: 26px;
+  padding: 28px;
   box-shadow: 0 30px 80px rgba(15, 23, 42, 0.15);
-  animation: slideUp 0.6s ease;
+  animation: slideUp 0.5s ease;
 }
 
-/* ===============================
-   HEADER
-================================ */
+
+/* =====================================================
+   EXAM HEADER
+===================================================== */
 .exam-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   background: linear-gradient(135deg, #2563eb, #4f46e5);
   color: #fff;
-  padding: 16px 20px;
+  padding: 14px 18px;
   border-radius: 14px;
-  margin-bottom: 20px;
-  box-shadow: 0 12px 30px rgba(37, 99, 235, 0.35);
+  margin-bottom: 22px;
+  height: 70px;
 }
 
 .timer {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
-  letter-spacing: 0.5px;
-  animation: pulse 1s infinite alternate;
+  color: #ffffff;
 }
 
 .progress {
   font-size: 14px;
-  opacity: 0.95;
+  height: max-content;
+  color: #000000;
 }
 
-/* ===============================
+/* =====================================================
    QUESTION
-================================ */
+===================================================== */
 .question-text {
   font-size: 20px;
   font-weight: 600;
-  margin: 26px 0 20px;
+  margin-bottom: 20px;
   color: #0f172a;
   line-height: 1.6;
-  animation: fadeIn 0.4s ease;
 }
 
-/* ===============================
+/* =====================================================
    OPTIONS
-================================ */
+===================================================== */
 .options {
   display: grid;
   gap: 14px;
-  margin-bottom: 28px;
 }
 
 .options button {
-  width: 100%;
-  padding: 16px 18px;
+  padding: 15px 18px;
   border-radius: 14px;
   background: #f8fafc;
   border: 2px solid transparent;
   font-size: 15px;
-  font-weight: 500;
   text-align: left;
   cursor: pointer;
   transition: all 0.25s ease;
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 5px 14px rgba(15, 23, 42, 0.08);
 }
 
 .options button:hover {
-  transform: translateY(-2px);
   background: #eef2ff;
 }
 
 .options button.active {
   background: linear-gradient(135deg, #2563eb, #4f46e5);
-  color: #ffffff;
+  color: #fff;
   border-color: #1e40af;
-  box-shadow: 0 14px 35px rgba(37, 99, 235, 0.45);
-  transform: scale(1.02);
 }
 
-/* ===============================
+/* =====================================================
    NAVIGATION
-================================ */
+===================================================== */
 .nav {
   display: flex;
   justify-content: space-between;
   gap: 12px;
+  margin-top: 26px;
 }
 
 .nav button {
   padding: 12px 22px;
   border-radius: 12px;
   border: none;
-  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   background: #e5e7eb;
-  color: #111827;
-  transition: all 0.25s ease;
 }
 
-.nav button:hover {
-  transform: translateY(-2px);
-  background: #dbeafe;
+.nav button.finish {
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+  color: #fff;
 }
 
 .nav button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  transform: none;
 }
 
-.nav button.finish {
-  background: linear-gradient(135deg, #16a34a, #22c55e);
-  color: #ffffff;
-  box-shadow: 0 10px 25px rgba(22, 163, 74, 0.45);
+/* =====================================================
+   RESULT PAGE
+===================================================== */
+.practice-container p {
+  margin: 10px 0;
+  font-size: 15px;
+  color: #000000;
+
 }
 
-.nav button.finish:hover {
-  background: linear-gradient(135deg, #15803d, #16a34a);
+.practice-container h2 {
+  font-size: 24px;
+  margin-bottom: 18px;
 }
 
-/* ===============================
-   LOADER / ERROR
-================================ */
-.practice-loader,
-.practice-error {
-  text-align: center;
+.practice-container button {
+  margin-top: 18px;
+  padding: 12px 22px;
+  border-radius: 12px;
+  border: none;
+  font-weight: 600;
+  background: #2563eb;
+  color: #fff;
+  cursor: pointer;
+}
+
+/* =====================================================
+   LOADER
+===================================================== */
+.practice-loader {
+  min-height: calc(100vh - 64px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
   font-size: 18px;
   color: #334155;
-  animation: fadeIn 0.5s ease;
 }
 
-/* ===============================
-   ANIMATIONS
-================================ */
+/* =====================================================
+   ANIMATION
+===================================================== */
 @keyframes slideUp {
   from {
     opacity: 0;
@@ -260,44 +295,26 @@
   }
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes pulse {
-  from {
-    opacity: 0.85;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-/* ===============================
+/* =====================================================
    RESPONSIVE
-================================ */
+===================================================== */
 @media (max-width: 768px) {
-  .exam {
-    padding: 18px;
+  .practice-title {
+    font-size: 22px;
+  }
+
+  .practice-card {
+    padding: 20px;
   }
 
   .question-text {
     font-size: 17px;
   }
 
-  .options button {
-    font-size: 14px;
-    padding: 14px;
-  }
-
   .exam-header {
     flex-direction: column;
     gap: 6px;
+    text-align: center;
   }
 }
 
@@ -310,3 +327,5 @@
     width: 100%;
   }
 }
+
+
