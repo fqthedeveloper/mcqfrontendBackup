@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { authGet } from "../../../services/api";
 import Swal from "sweetalert2";
@@ -10,20 +10,22 @@ export default function StudentDashboard() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadProfile();
-    document.title = "Student Dashboard";
-  }, []);
+  /* ================= HELPERS ================= */
 
-  const showWelcomeToast = (text, full_name, isFirst) => {
+  const todayKey = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+
+  /* ================= TOAST ================= */
+
+  const showToast = (title, text) => {
     Swal.fire({
       toast: true,
       position: "top-end",
       icon: "success",
-      title: `${text}, ${full_name}`,
-      text: isFirst
-        ? "We’re glad to have you here 🎉"
-        : "Nice to see you again 👋",
+      title,
+      text,
       showConfirmButton: false,
       timer: 3500,
       timerProgressBar: true,
@@ -32,34 +34,53 @@ export default function StudentDashboard() {
     });
   };
 
-  const loadProfile = async () => {
+  /* ================= LOAD PROFILE ================= */
+
+  const loadProfile = useCallback(async () => {
     try {
       const data = await authGet("/mcq/my-profile/");
       setProfile(data);
 
-      const key = `student_first_login_${data.username}`;
-      const isFirstLogin = !localStorage.getItem(key);
+      const firstKey = `student_first_login_${data.username}`;
+      const dayKey = `student_last_welcome_date_${data.username}`;
+      const today = todayKey();
 
-      if (isFirstLogin) {
-        showWelcomeToast(
-          "Welcome",
-          `${data.first_name} ${data.last_name}`,
-          true
+      const isFirstLoginEver = !localStorage.getItem(firstKey);
+      const lastWelcomeDate = localStorage.getItem(dayKey);
+
+      // ✅ FIRST EVER LOGIN (ONLY ONCE IN LIFETIME)
+      if (isFirstLoginEver) {
+        showToast(
+          `Welcome, ${data.first_name} ${data.last_name}`,
+          "We’re glad to have you here 🎉"
         );
-        localStorage.setItem(key, "true");
-      } else {
-        showWelcomeToast(
-          "Welcome back",
-          `${data.first_name} ${data.last_name}`,
-          false
-        );
+        localStorage.setItem(firstKey, "true");
+        localStorage.setItem(dayKey, today);
       }
+      // ✅ NEW DAY LOGIN (ONLY ONCE PER DAY)
+      else if (lastWelcomeDate !== today) {
+        showToast(
+          `Welcome back, ${data.first_name} ${data.last_name}`,
+          "Nice to see you again 👋"
+        );
+        localStorage.setItem(dayKey, today);
+      }
+      // ❌ SAME DAY → NO TOAST
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  /* ================= INIT ================= */
+
+  useEffect(() => {
+    loadProfile();
+    document.title = "Student Dashboard";
+  }, [loadProfile]);
+
+  /* ================= LOADING ================= */
 
   if (loading) {
     return (
@@ -89,10 +110,7 @@ export default function StudentDashboard() {
         </div>
 
         {/* PROFILE CARD */}
-        <motion.div
-          className="profile-card"
-          whileHover={{ scale: 1.02 }}
-        >
+        <motion.div className="profile-card" whileHover={{ scale: 1.02 }}>
           <h2>My Profile</h2>
 
           <div className="profile-grid">
@@ -114,7 +132,7 @@ export default function StudentDashboard() {
             </div>
           </div>
 
-          {/* ✅ VERIFY NOW BUTTON (ONLY IF NOT VERIFIED) */}
+          {/* VERIFY NOW */}
           {!profile.is_verified && (
             <div className="verify-box">
               <p className="verify-warning">
@@ -133,30 +151,10 @@ export default function StudentDashboard() {
         {/* ACTION CARDS */}
         <div className="card-grid">
           {[
-            {
-              icon: "📘",
-              title: "Exams",
-              desc: "View & start exams",
-              path: "/student/exams",
-            },
-            {
-              icon: "📊",
-              title: "Results",
-              desc: "Check exam scores",
-              path: "/student/results",
-            },
-            {
-              icon: "📘",
-              title: "Practice Exams",
-              desc: "View & start exams",
-              path: "/student/practice",
-            },
-            {
-              icon: "👤",
-              title: "Profile",
-              desc: "Account details",
-              path: "/student/profile",
-            },
+            { icon: "📘", title: "Exams", desc: "View & start exams", path: "/student/exams" },
+            { icon: "📊", title: "Results", desc: "Check exam scores", path: "/student/results" },
+            { icon: "📘", title: "Practice Exams", desc: "View & start exams", path: "/student/practice" },
+            { icon: "👤", title: "Profile", desc: "Account details", path: "/student/profile" },
           ].map((card, i) => (
             <motion.div
               key={i}
@@ -186,9 +184,7 @@ export default function StudentDashboard() {
           align-items: flex-start;
         }
 
-        .student-bg.center {
-          align-items: center;
-        }
+        .student-bg.center { align-items: center; }
 
         .student-dashboard {
           width: 100%;
@@ -199,19 +195,11 @@ export default function StudentDashboard() {
           box-shadow: 0 25px 60px rgba(0,0,0,0.2);
         }
 
-        .header {
-          margin-bottom: 24px;
-        }
+        .header { margin-bottom: 24px; }
 
-        h1 {
-          margin: 0;
-          font-size: 28px;
-        }
+        h1 { margin: 0; font-size: 28px; }
 
-        .welcome {
-          margin-top: 6px;
-          color: #555;
-        }
+        .welcome { margin-top: 6px; color: #555; }
 
         .profile-card {
           background: #f9fafb;
@@ -253,9 +241,7 @@ export default function StudentDashboard() {
           font-weight: 600;
         }
 
-        .verify-btn:hover {
-          background: #ea580c;
-        }
+        .verify-btn:hover { background: #ea580c; }
 
         .card-grid {
           display: grid;
@@ -272,9 +258,7 @@ export default function StudentDashboard() {
           box-shadow: 0 10px 25px rgba(0,0,0,0.12);
         }
 
-        .action-card .icon {
-          font-size: 36px;
-        }
+        .action-card .icon { font-size: 36px; }
 
         .action-card h3 {
           margin: 14px 0 6px;
@@ -289,11 +273,6 @@ export default function StudentDashboard() {
         .loading {
           color: #fff;
           font-size: 18px;
-        }
-
-        @media (max-width: 600px) {
-          h1 { font-size: 24px; }
-          .student-dashboard { padding: 20px; }
         }
       `}</style>
     </div>
