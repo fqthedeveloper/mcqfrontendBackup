@@ -1,6 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { authService } from '../services/authService';
-import { mcqService } from '../services/mcqService';
 
 const AuthContext = createContext();
 
