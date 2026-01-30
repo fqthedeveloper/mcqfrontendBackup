@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import { authGet, authPost } from "../../../services/api";
@@ -35,29 +35,32 @@ export default function CreateExam() {
   }, []);
 
   /* ================= LOAD QUESTIONS ================= */
-  useEffect(() => {
-    resetQuestions();
-  }, [questionSubject]);
+  const loadQuestions = useCallback(
+    async (pg, reset = false) => {
+      setLoadingQ(true);
 
-  const resetQuestions = () => {
+      let url = `/mcq/questions/?page=${pg}`;
+      if (questionSubject) url += `&subject=${questionSubject}`;
+
+      const res = await authGet(url);
+      const data = normalize(res);
+
+      setAvailable((p) => (reset ? data : [...p, ...data]));
+      setHasMore(Boolean(res.next));
+      setLoadingQ(false);
+    },
+    [questionSubject]
+  );
+
+  const resetQuestions = useCallback(() => {
     setAvailable([]);
     setPage(1);
     loadQuestions(1, true);
-  };
+  }, [loadQuestions]);
 
-  const loadQuestions = async (pg, reset = false) => {
-    setLoadingQ(true);
-
-    let url = `/mcq/questions/?page=${pg}`;
-    if (questionSubject) url += `&subject=${questionSubject}`;
-
-    const res = await authGet(url);
-    const data = normalize(res);
-
-    setAvailable((p) => (reset ? data : [...p, ...data]));
-    setHasMore(Boolean(res.next));
-    setLoadingQ(false);
-  };
+  useEffect(() => {
+    resetQuestions();
+  }, [resetQuestions]);
 
   /* ================= FILTER ================= */
   const filteredAvailable = available.filter(
@@ -69,7 +72,11 @@ export default function CreateExam() {
   /* ================= SELECT ================= */
   const addQuestion = (q) => {
     if (selected.length >= 100) {
-      return Swal.fire("Limit Reached", "Maximum 100 questions allowed", "warning");
+      return Swal.fire(
+        "Limit Reached",
+        "Maximum 100 questions allowed",
+        "warning"
+      );
     }
     setSelected((p) => [...p, q]);
   };
@@ -99,10 +106,16 @@ export default function CreateExam() {
     navigate("/admin/exam-list");
   };
 
-
+  /* ================= PAGE TITLE ================= */
   useEffect(() => {
-      document.title = "Create Exam - Admin";
-    }, []);
+    document.title = "Create Exam - Admin";
+  }, []);
+
+  /* optional: loading indicator now that loadingQ is used */
+  if (loadingQ && page === 1) {
+    return <div className="page-center">Loading questions…</div>;
+  }
+
   /* ================= UI ================= */
   return (
     <div className="exam-wrapper">

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Swal from "sweetalert2";
 import { authGet, authPut, authPost } from "../../../services/api";
@@ -27,11 +27,8 @@ export default function EditExamForm() {
   });
 
   /* ================= INITIAL LOAD ================= */
-  useEffect(() => {
-    loadInitial();
-  }, [id]);
 
-  const loadInitial = async () => {
+  const loadInitial = useCallback(async () => {
     try {
       const [subRes, examRes] = await Promise.all([
         authGet("/mcq/subjects/"),
@@ -47,18 +44,14 @@ export default function EditExamForm() {
         mode: examRes.mode,
       });
 
-      // 🔥 selected questions come from examRes.questions (ids)
       const questionRes = await authGet(
-        `/mcq/questions/?subject=${examRes.subject}`
+        `/mcq/questions/?subject=${examRes.subject}`,
       );
+
       const all = normalize(questionRes);
 
-      const selectedQs = all.filter((q) =>
-        examRes.questions.includes(q.id)
-      );
-      const availableQs = all.filter(
-        (q) => !examRes.questions.includes(q.id)
-      );
+      const selectedQs = all.filter((q) => examRes.questions.includes(q.id));
+      const availableQs = all.filter((q) => !examRes.questions.includes(q.id));
 
       setSelected(selectedQs);
       setAvailable(availableQs);
@@ -67,11 +60,15 @@ export default function EditExamForm() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]); // ✅ dependency added
 
   useEffect(() => {
-      document.title = "Edit Exam - Admin";
-    }, []);
+    loadInitial();
+  }, [loadInitial]);
+
+  useEffect(() => {
+    document.title = "Edit Exam - Admin";
+  }, []);
 
   /* ================= SUBJECT CHANGE ================= */
   const handleSubjectChange = async (subjectId) => {
@@ -122,7 +119,7 @@ export default function EditExamForm() {
 
   /* ================= FILTER ================= */
   const filteredAvailable = available.filter((q) =>
-    q.text.toLowerCase().includes(search.toLowerCase())
+    q.text.toLowerCase().includes(search.toLowerCase()),
   );
 
   if (loading) {
@@ -140,16 +137,12 @@ export default function EditExamForm() {
           <input
             placeholder="Exam Title"
             value={exam.title}
-            onChange={(e) =>
-              setExam({ ...exam, title: e.target.value })
-            }
+            onChange={(e) => setExam({ ...exam, title: e.target.value })}
           />
 
           <select
             value={exam.subject}
-            onChange={(e) =>
-              handleSubjectChange(Number(e.target.value))
-            }
+            onChange={(e) => handleSubjectChange(Number(e.target.value))}
           >
             <option value="">Select Subject</option>
             {subjects.map((s) => (
@@ -169,9 +162,7 @@ export default function EditExamForm() {
 
           <select
             value={exam.mode}
-            onChange={(e) =>
-              setExam({ ...exam, mode: e.target.value })
-            }
+            onChange={(e) => setExam({ ...exam, mode: e.target.value })}
           >
             <option value="practice">Practice</option>
             <option value="strict">Strict</option>
@@ -185,9 +176,7 @@ export default function EditExamForm() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <span className="counter">
-            {selected.length} / 100 selected
-          </span>
+          <span className="counter">{selected.length} / 100 selected</span>
         </div>
 
         {/* TWO COLUMNS */}
@@ -234,9 +223,7 @@ export default function EditExamForm() {
               </div>
             ))}
 
-            {!selected.length && (
-              <p className="empty">No questions selected</p>
-            )}
+            {!selected.length && <p className="empty">No questions selected</p>}
           </div>
         </div>
 
