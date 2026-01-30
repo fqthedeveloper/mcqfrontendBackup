@@ -12,8 +12,10 @@ export default function PracticeResult() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (!runId) return;
+
     practiceService.finishPractice(runId).then(setResult);
-  }, []);
+  }, [runId]);
 
   if (!result) return <div>Loading...</div>;
 
@@ -25,7 +27,9 @@ export default function PracticeResult() {
       <p>Wrong: {result.wrong}</p>
       <p>Accuracy: {result.accuracy}%</p>
 
-      <button onClick={() => navigate("/student")}>Back to Dashboard</button>
+      <button onClick={() => navigate("/student")}>
+        Back to Dashboard
+      </button>
     </div>
   );
 }

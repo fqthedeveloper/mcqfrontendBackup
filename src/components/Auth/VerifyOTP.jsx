@@ -126,17 +126,7 @@ export default function OTPPage() {
       setLoading(false);
     }
   };
-
-  /* ================= CHANGE EMAIL ================= */
-  const resetFlow = () => {
-    sessionStorage.removeItem("OTP_STEP");
-    sessionStorage.removeItem("OTP_TIMER");
-    setStep("send");
-    setOtp(["", "", "", "", "", ""]);
-    setTimer(0);
-    setMessage("");
-  };
-
+  /* ================= RENDER ================= */
   useEffect(() => {
     document.title = "Verify OTP";
   }, []);

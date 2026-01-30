@@ -1,6 +1,11 @@
 // src/components/Student/Practice/PracticeExam.jsx
 
-import React, { useEffect, useState, useRef } from "react";
+import React, {
+  useEffect,
+  useState,
+  useRef,
+  useCallback
+} from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import practiceService from "../../../services/practiceService";
 import "./Practice.css";
@@ -23,7 +28,21 @@ export default function PracticeExam() {
   const navigate = useNavigate();
   const finishedRef = useRef(false);
 
+  /* ===== FINISH ===== */
+
+  const finish = useCallback(async () => {
+    if (!runId) return;
+    try {
+      await practiceService.finishPractice(runId);
+    } catch (e) {
+      console.error(e);
+    }
+    localStorage.removeItem(STORAGE_KEY);
+    navigate(`/student/practice/result?run=${runId}`);
+  }, [runId, navigate, STORAGE_KEY]);
+
   /* ===== START / RESUME ===== */
+
   useEffect(() => {
     let cancelled = false;
 
@@ -42,7 +61,10 @@ export default function PracticeExam() {
           }
         }
 
-        const res = await practiceService.startPractice(subjectId, difficulty);
+        const res = await practiceService.startPractice(
+          subjectId,
+          difficulty
+        );
         if (cancelled) return;
 
         setRunId(res.run_id);
@@ -55,13 +77,13 @@ export default function PracticeExam() {
     };
 
     init();
-    return () => (cancelled = true);
-  }, []);
-
-  
-
+    return () => {
+      cancelled = true;
+    };
+  }, [resume, subjectId, difficulty, STORAGE_KEY]);
 
   /* ===== TIMER ===== */
+
   useEffect(() => {
     if (!runId || finishedRef.current) return;
 
@@ -76,41 +98,50 @@ export default function PracticeExam() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeLeft, runId]);
+  }, [timeLeft, runId, finish]);
 
+  /* ===== TITLE ===== */
 
   useEffect(() => {
-      document.title = "Practice Exam";
-    }, []);
+    document.title = "Practice Exam";
+  }, []);
 
   /* ===== AUTOSAVE ===== */
+
   useEffect(() => {
     if (!runId || !questions.length) return;
 
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ runId, questions, current, answers, timeLeft })
+      JSON.stringify({
+        runId,
+        questions,
+        current,
+        answers,
+        timeLeft
+      })
     );
-  }, [runId, current, answers, timeLeft, questions]);
+  }, [runId, current, answers, timeLeft, questions, STORAGE_KEY]);
 
-  const selectOption = (qid, opt) => {
-    setAnswers((prev) => ({ ...prev, [qid]: opt }));
-    practiceService.submitAnswer(runId, qid, opt);
-  };
+  /* ===== ANSWER ===== */
 
-  const finish = async () => {
-    if (!runId) return;
-    try {
-      await practiceService.finishPractice(runId);
-    } catch (e) {
-      console.error(e);
-    }
-    localStorage.removeItem(STORAGE_KEY);
-    navigate(`/student/practice/result?run=${runId}`);
-  };
+  const selectOption = useCallback(
+    (qid, opt) => {
+      setAnswers((prev) => ({ ...prev, [qid]: opt }));
+      practiceService.submitAnswer(runId, qid, opt);
+    },
+    [runId]
+  );
 
-  if (loading) return <div className="practice-loader">Loading exam…</div>;
-  if (!questions.length) return <div className="practice-loader">No questions found</div>;
+  if (loading)
+    return <div className="practice-loader">Loading exam…</div>;
+
+  if (!questions.length)
+    return (
+      <div className="practice-loader">
+        No questions found
+      </div>
+    );
 
   const q = questions[current];
 
@@ -119,7 +150,8 @@ export default function PracticeExam() {
       <div className="practice-exam-card">
         <div className="exam-header">
           <div className="timer">
-            ⏱ {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, "0")}
+            ⏱ {Math.floor(timeLeft / 60)}:
+            {String(timeLeft % 60).padStart(2, "0")}
           </div>
           <div className="progress">
             Question {current + 1} / {questions.length}
@@ -143,12 +175,17 @@ export default function PracticeExam() {
         </div>
 
         <div className="nav">
-          <button disabled={current === 0} onClick={() => setCurrent(c => c - 1)}>
+          <button
+            disabled={current === 0}
+            onClick={() => setCurrent((c) => c - 1)}
+          >
             Prev
           </button>
 
           {current < questions.length - 1 ? (
-            <button onClick={() => setCurrent(c => c + 1)}>Next</button>
+            <button onClick={() => setCurrent((c) => c + 1)}>
+              Next
+            </button>
           ) : (
             <button className="finish" onClick={finish}>
               Finish

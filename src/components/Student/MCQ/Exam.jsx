@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import { authGet, authPost } from "../../../services/api";
@@ -93,12 +93,7 @@ export default function Exam() {
 
   /* ================= LOAD SESSION ================= */
 
-  useEffect(() => {
-    if (!sessionId) return navigate("/student/exams");
-    loadSession();
-  }, [sessionId]);
-
-  const loadSession = async () => {
+  const loadSession = useCallback(async () => {
     try {
       const data = await authGet(`/mcq/sessions/${sessionId}/`);
 
@@ -121,7 +116,42 @@ export default function Exam() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [sessionId, navigate]);
+
+  useEffect(() => {
+    if (!sessionId) {
+      navigate("/student/exams");
+      return;
+    }
+    loadSession();
+  }, [sessionId, navigate, loadSession]);
+
+  /* ================= SUBMIT ================= */
+
+  const handleSubmit = useCallback(
+    async (reason) => {
+      if (submittedRef.current) return;
+      submittedRef.current = true;
+      setSubmitting(true);
+      clearInterval(timerRef.current);
+      exitFullscreenSafe();
+
+      const payload = Object.entries(answersRef.current).map(([q, a]) => ({
+        question: Number(q),
+        selected_answers: a,
+      }));
+
+      try {
+        await authPost(`/mcq/sessions/${session.id}/submit/`, {
+          terminate_reason: reason,
+          answers: payload,
+        });
+      } finally {
+        navigate(`/student/results/${session.id}`);
+      }
+    },
+    [navigate, session]
+  );
 
   /* ================= TIMER ================= */
 
@@ -150,7 +180,33 @@ export default function Exam() {
     }, 1000);
 
     return () => clearInterval(timerRef.current);
-  }, [started]);
+  }, [started, handleSubmit]);
+
+  /* ================= WARNINGS ================= */
+
+  const addWarning = useCallback(
+    (msg) => {
+      if (warningLock.current || submittedRef.current) return;
+      warningLock.current = true;
+
+      setWarnings((w) => {
+        const next = w + 1;
+        if (next >= 3) {
+          Swal.fire("Exam Auto Submitted", msg, "error").then(() =>
+            handleSubmit("warnings")
+          );
+        } else {
+          Swal.fire(`Warning ${next}/3`, msg, "warning").then(() =>
+            enterFullscreenSafe()
+          );
+        }
+        return next;
+      });
+
+      setTimeout(() => (warningLock.current = false), 1200);
+    },
+    [handleSubmit]
+  );
 
   /* ================= RIGHT CLICK + COPY BLOCK ================= */
 
@@ -160,92 +216,50 @@ export default function Exam() {
     const blockContext = (e) => {
       e.preventDefault();
       e.stopPropagation();
+      addWarning("Right click is not allowed.");
       return false;
     };
 
-    const blockMouse = (e) => {
-      if (e.button === 2) {
+    document.addEventListener("contextmenu", blockContext, true);
+    return () =>
+      document.removeEventListener("contextmenu", blockContext, true);
+  }, [started, addWarning]);
+
+  /* ================= DEVTOOLS / SHORTCUT BLOCK ================= */
+
+  useEffect(() => {
+    if (!started) return;
+
+    const blockKeys = (e) => {
+      const key = e.key.toLowerCase();
+
+      if (e.keyCode === 123) {
         e.preventDefault();
-        e.stopPropagation();
+        addWarning("Developer tools are not allowed.");
+        return false;
+      }
+
+      if (
+        e.ctrlKey &&
+        e.shiftKey &&
+        (key === "i" || key === "j" || key === "c")
+      ) {
+        e.preventDefault();
+        addWarning("Developer tools are not allowed.");
+        return false;
+      }
+
+      if (e.ctrlKey && key === "u") {
+        e.preventDefault();
+        addWarning("Viewing source is not allowed.");
         return false;
       }
     };
 
-    document.addEventListener("contextmenu", blockContext, true);
-    document.addEventListener("mousedown", blockMouse, true);
-
-    return () => {
-      document.removeEventListener("contextmenu", blockContext, true);
-      document.removeEventListener("mousedown", blockMouse, true);
-    };
-  }, [started]);
-
-    /* ================= DEVTOOLS / SHORTCUT BLOCK ================= */
-
-useEffect(() => {
-  if (!started) return;
-
-  const blockKeys = (e) => {
-    const key = e.key.toLowerCase();
-
-    // F12
-    if (e.keyCode === 123) {
-      e.preventDefault();
-      e.stopPropagation();
-      addWarning("Developer tools are not allowed.");
-      return false;
-    }
-
-    // Ctrl + Shift + I / J / C
-    if (
-      e.ctrlKey &&
-      e.shiftKey &&
-      (key === "i" || key === "j" || key === "c")
-    ) {
-      e.preventDefault();
-      e.stopPropagation();
-      addWarning("Developer tools are not allowed.");
-      return false;
-    }
-
-    // Ctrl + U (view source)
-    if (e.ctrlKey && key === "u") {
-      e.preventDefault();
-      e.stopPropagation();
-      addWarning("Viewing source is not allowed.");
-      return false;
-    }
-  };
-
-  document.addEventListener("keydown", blockKeys, true);
-
-  return () => {
-    document.removeEventListener("keydown", blockKeys, true);
-  };
-}, [started]);
-
-  /* ================= WARNINGS ================= */
-
-  const addWarning = (msg) => {
-    if (warningLock.current || submittedRef.current) return;
-    warningLock.current = true;
-
-    setWarnings((w) => {
-      const next = w + 1;
-      if (next >= 3) {
-        Swal.fire("Exam Auto Submitted", msg, "error").then(() =>
-          handleSubmit("warnings"),
-        );
-      } else {
-        Swal.fire(`Warning ${next}/3`, msg, "warning").then(() =>
-          enterFullscreenSafe(),
-        );
-      }
-      return next;
-    });
-
-    setTimeout(() => (warningLock.current = false), 1200);
-  };
+    document.addEventListener("keydown", blockKeys, true);
+    return () =>
+      document.removeEventListener("keydown", blockKeys, true);
+  }, [started, addWarning]);
 
   /* ================= FULLSCREEN EXIT ================= */
 
@@ -261,7 +275,7 @@ useEffect(() => {
     document.addEventListener("fullscreenchange", onFsExit);
     return () =>
       document.removeEventListener("fullscreenchange", onFsExit);
-  }, [started]);
+  }, [started, addWarning]);
 
   /* ================= TAB SWITCH ================= */
 
@@ -277,38 +291,17 @@ useEffect(() => {
     document.addEventListener("visibilitychange", onHide);
     return () =>
       document.removeEventListener("visibilitychange", onHide);
-  }, [started]);
-
-  /* ================= SUBMIT ================= */
-
-  const handleSubmit = async (reason) => {
-    if (submittedRef.current) return;
-    submittedRef.current = true;
-    setSubmitting(true);
-    clearInterval(timerRef.current);
-    exitFullscreenSafe();
-
-    const payload = Object.entries(answersRef.current).map(([q, a]) => ({
-      question: Number(q),
-      selected_answers: a,
-    }));
-
-    try {
-      await authPost(`/mcq/sessions/${session.id}/submit/`, {
-        terminate_reason: reason,
-        answers: payload,
-      });
-    } finally {
-      navigate(`/student/results/${session.id}`);
-    }
-  };
+  }, [started, addWarning]);
 
   /* ================= START ================= */
 
   const startExam = async () => {
     const r = await Swal.fire({
       title: "Exam Instructions",
-      text: "1) Fullscreen required. Right click & tab switch disabled. 3 warnings allowed. 80% About to Pass Exam",
+      text:
+        "1) Fullscreen required. Right click & tab switch disabled.\n" +
+        "2) 3 warnings allowed.\n" +
+        "3) 80% About to Pass Exam",
       showCancelButton: true,
       allowOutsideClick: false,
     });
@@ -325,22 +318,21 @@ useEffect(() => {
     return (
       <div className="exam-start">
         <div className="start-card">
-        <h1>{exam.title}</h1>
-        <p>Subject Name: {exam.subject_name}</p>
-        <p>Duration: {exam.duration} minutes</p>
-        <p>Total Questions: {questions.length}</p>
-        <h1>Exam Instructions:</h1>
-        <p>1) Fullscreen required. Right click & tab switch disabled.</p>
-        <p>2) 3 warnings allowed.</p>
-        <p>3) 80% About to Pass Exam</p>
+          <h1>{exam.title}</h1>
+          <p>Subject Name: {exam.subject_name}</p>
+          <p>Duration: {exam.duration} minutes</p>
+          <p>Total Questions: {questions.length}</p>
+          <h1>Exam Instructions:</h1>
+          <p>1) Fullscreen required. Right click & tab switch disabled.</p>
+          <p>2) 3 warnings allowed.</p>
+          <p>3) 80% About to Pass Exam</p>
 
-        <button onClick={startExam}>Start Exam</button>
+          <button onClick={startExam}>Start Exam</button>
         </div>
       </div>
     );
 
   const q = questions[currentIndex];
-
 
   return (
     <div className={`exam-wrapper ${submitting ? "locked" : ""}`}>
