@@ -1,4 +1,4 @@
-import React, { use, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import mcqService from "../../../services/mcqService";
 import practiceAdminService from "../../../services/practiceAdminService";
 import Swal from "sweetalert2";

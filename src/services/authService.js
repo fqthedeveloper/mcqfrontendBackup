@@ -1,8 +1,6 @@
 import {
-  baseURL,
   post,
   authPost,
-  authPostFormData,
   getUser,
   getToken,
   setToken,
