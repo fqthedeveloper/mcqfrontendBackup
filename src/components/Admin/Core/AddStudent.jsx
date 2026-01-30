@@ -23,13 +23,13 @@ export default function AddStudent() {
   }, []);
 
   const loadSubjects = async () => {
-    try {
-      const res = await authGet("/mcq/subjects/");
-      setSubjects(res.results || []);
-    } catch {
-      Swal.fire("Error", "Unable to load subjects", "error");
-    }
-  };
+  try {
+    const res = await authGet("/mcq/subjects/");
+    setSubjects(normalizeArray(res));
+  } catch {
+    Swal.fire("Error", "Unable to load subjects", "error");
+  }
+};
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });

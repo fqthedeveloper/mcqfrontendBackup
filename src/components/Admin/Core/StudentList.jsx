@@ -20,14 +20,14 @@ export default function AdminStudentList() {
   }, []);
 
   const loadStudents = async () => {
-    const res = await authGet("/mcq/students/");
-    setStudents(res.results || []);
-  };
+  const res = await authGet("/mcq/students/");
+  setStudents(Array.isArray(res) ? res : res.results || []);
+};
 
   const loadSubjects = async () => {
-    const res = await authGet("/mcq/subjects/");
-    setSubjects(res.results || []);
-  };
+  const res = await authGet("/mcq/subjects/");
+  setSubjects(Array.isArray(res) ? res : res.results || []);
+};
 
   const startEdit = (s) => {
     setEditId(s.id);
