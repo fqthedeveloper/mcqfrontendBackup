@@ -4,55 +4,104 @@ import practiceAdminService from "../../../services/practiceAdminService";
 import Swal from "sweetalert2";
 import "./PracticeQuestionMapper.css";
 
+/* ===================== NORMALIZER ===================== */
+const normalizeList = (res) => {
+  if (Array.isArray(res)) {
+    return { data: res, count: res.length };
+  }
+  if (Array.isArray(res?.results)) {
+    return {
+      data: res.results,
+      count: res.count ?? res.results.length,
+    };
+  }
+  return { data: [], count: 0 };
+};
+
+/* ===================== COMPONENT ===================== */
 export default function PracticeQuestionMapper() {
   const [subjects, setSubjects] = useState([]);
   const [questions, setQuestions] = useState([]);
+
   const [subjectId, setSubjectId] = useState("");
   const [difficulty, setDifficulty] = useState("easy");
 
-  const [stats, setStats] = useState({ easy: 0, medium: 0, hard: 0 });
+  const [stats, setStats] = useState({
+    easy: 0,
+    medium: 0,
+    hard: 0,
+  });
+
   const [selected, setSelected] = useState([]);
 
   const [count, setCount] = useState(0);
   const [page, setPage] = useState(1);
   const pageSize = 100;
 
-
-
+  /* ===================== LOAD SUBJECTS ===================== */
   useEffect(() => {
-    mcqService.getSubjects().then((res) => {
-      setSubjects(Array.isArray(res) ? res : res.results || []);
-    });
+    const loadSubjects = async () => {
+      try {
+        const res = await mcqService.getSubjects();
+        const { data } = normalizeList(res);
+        setSubjects(data);
+      } catch {
+        Swal.fire("Error", "Failed to load subjects", "error");
+      }
+    };
+
+    loadSubjects();
   }, []);
 
+  /* ===================== LOAD STATS ===================== */
   const loadStats = async (sid) => {
-    const res = await practiceAdminService.getStats(sid);
-    setStats(res);
+    try {
+      const res = await practiceAdminService.getStats(sid);
+      setStats({
+        easy: res.easy ?? 0,
+        medium: res.medium ?? 0,
+        hard: res.hard ?? 0,
+      });
+    } catch {
+      setStats({ easy: 0, medium: 0, hard: 0 });
+    }
   };
 
+  /* ===================== LOAD QUESTIONS ===================== */
   const loadQuestions = async (sid, p = 1) => {
+    if (!sid) return;
+
     setSubjectId(sid);
     setPage(p);
     setSelected([]);
 
-    if (!sid) return;
-
     await loadStats(sid);
 
-    const res = await mcqService.getQuestions(
-      `?subject=${sid}&page=${p}`
-    );
+    try {
+      const res = await mcqService.getQuestions(
+        `?subject=${sid}&page=${p}`
+      );
 
-    setQuestions(res.results || []);
-    setCount(res.count || 0);
+      const { data, count } = normalizeList(res);
+      setQuestions(data);
+      setCount(count);
+    } catch {
+      setQuestions([]);
+      setCount(0);
+      Swal.fire("Error", "Failed to load questions", "error");
+    }
   };
 
+  /* ===================== SELECT / UNSELECT ===================== */
   const toggleQuestion = (id) => {
     setSelected((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+      prev.includes(id)
+        ? prev.filter((x) => x !== id)
+        : [...prev, id]
     );
   };
 
+  /* ===================== MAP QUESTIONS ===================== */
   const mapQuestions = async () => {
     if (!subjectId || selected.length === 0) {
       Swal.fire("Warning", "Select subject and questions", "warning");
@@ -89,45 +138,58 @@ export default function PracticeQuestionMapper() {
     }
   };
 
+  /* ===================== TITLE ===================== */
   useEffect(() => {
     document.title = "Practice Question Mapper - Admin";
   }, []);
 
   const totalPages = Math.ceil(count / pageSize);
 
-  
+  /* ===================== RENDER ===================== */
   return (
     <div className="practice-admin-page">
       <h1 className="page-title">Practice Question Mapping</h1>
 
+      {/* ===== STATS ===== */}
       <div className="stats-bar">
         <div className="stat easy">Easy Applied: {stats.easy}</div>
         <div className="stat medium">Medium Applied: {stats.medium}</div>
         <div className="stat hard">Hard Applied: {stats.hard}</div>
       </div>
 
+      {/* ===== CONTROLS ===== */}
       <div className="control-bar">
         <select onChange={(e) => loadQuestions(e.target.value, 1)}>
           <option value="">Select Subject</option>
           {subjects.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
           ))}
         </select>
 
-        <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)}>
+        <select
+          value={difficulty}
+          onChange={(e) => setDifficulty(e.target.value)}
+        >
           <option value="easy">Easy</option>
           <option value="medium">Medium</option>
           <option value="hard">Hard</option>
         </select>
 
-        <button onClick={mapQuestions}>Map ({selected.length})</button>
+        <button onClick={mapQuestions}>
+          Map ({selected.length})
+        </button>
       </div>
 
+      {/* ===== QUESTION LIST ===== */}
       <div className="question-list">
         {questions.map((q) => (
           <div
             key={q.id}
-            className={`question-row ${selected.includes(q.id) ? "selected" : ""}`}
+            className={`question-row ${
+              selected.includes(q.id) ? "selected" : ""
+            }`}
             onClick={() => toggleQuestion(q.id)}
           >
             <input
@@ -141,6 +203,7 @@ export default function PracticeQuestionMapper() {
         ))}
       </div>
 
+      {/* ===== PAGINATION ===== */}
       {totalPages > 1 && (
         <div className="pagination">
           {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
