@@ -9,7 +9,8 @@ export default function AdminResultDetail() {
   const [result, setResult] = useState(null);
 
   useEffect(() => {
-    document.title = `Result - ${result.student_name}`;
+    if (!result) return;
+    document.title = `Result - ${result.student_name || "Student"}`;
   }, [result]);
 
   useEffect(() => {
@@ -20,8 +21,6 @@ export default function AdminResultDetail() {
   if (!result) {
     return <div className="result-loading">Loading result…</div>;
   }
-
-
 
   return (
     <div className="result-container">
@@ -39,7 +38,7 @@ export default function AdminResultDetail() {
 
         <div className="score-details">
           <p><strong>Score:</strong> {result.score}/{result.total_marks}</p>
-          <p><strong>Student:</strong> {result.student_name}</p>
+          <p><strong>Student:</strong> {result.student_name || "—"}</p>
           <p><strong>Email:</strong> {result.student_email}</p>
           <p>
             <strong>Status:</strong>{" "}
@@ -56,7 +55,7 @@ export default function AdminResultDetail() {
 
       <h2 className="section-title">Question Review</h2>
 
-      {Object.entries(result.details).map(([qid, q], index) => (
+      {Object.entries(result.details || {}).map(([qid, q], index) => (
         <div
           key={qid}
           className={`question-review ${
@@ -95,7 +94,10 @@ export default function AdminResultDetail() {
       ))}
 
       <div className="result-footer">
-        <button className="dashboard-btn" onClick={() => navigate("/admin/results")}>
+        <button
+          className="dashboard-btn"
+          onClick={() => navigate("/admin/results")}
+        >
           Back to Results
         </button>
       </div>
