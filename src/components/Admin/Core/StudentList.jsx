@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { authGet, authPut } from "../../../services/api";
-import { normalizeArray } from "../../utils/normalize";
 
 
 export default function AdminStudentList() {

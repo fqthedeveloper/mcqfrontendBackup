@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import Swal from "sweetalert2";
 import { authPost, authGet } from "../../../services/api";
+import { normalizeArray } from "../../utils/normalize";
+
 
 export default function AddStudent() {
   useEffect(() => {
