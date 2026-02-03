@@ -91,7 +91,7 @@ export default function Header() {
           <div className="overlay" onClick={() => setUserMenu(false)} />
           <div className="user-menu">
             <button onClick={handleLogout} className="logout0">
-               Logout
+              <i className="fas fa-sign-out-alt" /> Logout
             </button>
           </div>
         </>
@@ -130,8 +130,8 @@ export default function Header() {
               )}
 
               {user && (
-                <button className="logout" onClick={handleLogout}>
-                  <p className="logout0">Logout</p>
+                <button className="logout0" onClick={handleLogout}>
+                  <i className="fas fa-sign-out-alt" /> Logout
                 </button>
               )}
               
