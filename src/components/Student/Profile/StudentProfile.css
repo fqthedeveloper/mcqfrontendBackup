@@ -133,3 +133,45 @@
     width: 100%;
   }
 }
+
+
+/* ===== SECURITY SECTION ===== */
+.security-card {
+  margin-top: 24px;
+}
+
+.security-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.security-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status.enabled {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status.disabled {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.security-btn {
+  background: #111827;
+  color: #ffffff;
+}

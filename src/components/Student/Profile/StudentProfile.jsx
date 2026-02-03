@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { authGet, authPut, getUser, setUser } from "../../../services/api";
+import { useNavigate } from "react-router-dom";
 import "./StudentProfile.css";
 
 const StudentProfile = () => {
+  const navigate = useNavigate();
+
   const [profile, setProfile] = useState({
     first_name: "",
     last_name: "",
@@ -16,8 +19,24 @@ const StudentProfile = () => {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
+  /* ================= M2F STATUS (FIXED) ================= */
+  const storedUser = getUser();
+
+  // 🔥 Normalize old + new keys
+  const isM2FEnabled =
+    storedUser?.is_totp_enabled === true ||
+    storedUser?.totp_enabled === true;
+
   useEffect(() => {
     fetchProfile();
+
+    // 🔥 Self-heal localStorage (ONE TIME)
+    if (storedUser?.totp_enabled && !storedUser?.is_totp_enabled) {
+      setUser({
+        ...storedUser,
+        is_totp_enabled: true,
+      });
+    }
   }, []);
 
   const fetchProfile = async () => {
@@ -58,8 +77,8 @@ const StudentProfile = () => {
         email: profile.email,
       });
 
-      const storedUser = getUser();
-      setUser({ ...storedUser, ...updated });
+      const stored = getUser();
+      setUser({ ...stored, ...updated });
 
       setOriginalProfile(updated);
       setProfile(updated);
@@ -81,20 +100,22 @@ const StudentProfile = () => {
   return (
     <div className="profile-page">
       <div className="profile-container">
+
+        {/* ===== HEADER ===== */}
         <div className="profile-title">
           <div className="profile-avatar">👤</div>
           <div>
             <h2>Profile</h2>
-            <p>Account details</p>
+            <p>Account details & security</p>
           </div>
         </div>
 
+        {/* ===== PROFILE ===== */}
         <div className="profile-card">
           <div className="profile-grid">
             <div className="form-group">
               <label>First Name</label>
               <input
-                type="text"
                 name="first_name"
                 value={profile.first_name}
                 onChange={handleChange}
@@ -105,7 +126,6 @@ const StudentProfile = () => {
             <div className="form-group">
               <label>Last Name</label>
               <input
-                type="text"
                 name="last_name"
                 value={profile.last_name}
                 onChange={handleChange}
@@ -115,13 +135,12 @@ const StudentProfile = () => {
 
             <div className="form-group">
               <label>Username</label>
-              <input type="text" value={profile.username} disabled />
+              <input value={profile.username} disabled />
             </div>
 
             <div className="form-group">
               <label>Email</label>
               <input
-                type="email"
                 name="email"
                 value={profile.email}
                 onChange={handleChange}
@@ -153,6 +172,7 @@ const StudentProfile = () => {
             )}
           </div>
         </div>
+
       </div>
     </div>
   );

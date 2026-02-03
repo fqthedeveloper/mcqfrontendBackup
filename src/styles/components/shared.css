@@ -189,6 +189,10 @@
   text-align: left;
 }
 
+.logout0 {
+  color: var(--text) !important;
+  background: black !important;
+}
 /* RESPONSIVE */
 @media (max-width: 900px) {
   .menu-btn {

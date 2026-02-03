@@ -1,40 +1,70 @@
-/* Root container */
+/* =========================================================
+   GLOBAL RESET
+========================================================= */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: #f3f4f6;
+  color: #111827;
+}
+
+/* =========================================================
+   LOGIN PAGE CONTAINER
+========================================================= */
 .login-container {
-  min-height: 100vh;
+  min-height: 100svh; /* fixes mobile browser height issue */
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: clamp(16px, 4vw, 32px);
   background: linear-gradient(135deg, #6a11cb, #2575fc);
 }
 
-/* Card */
+/* =========================================================
+   LOGIN CARD
+========================================================= */
 .login-card {
   width: 100%;
   max-width: 480px;
   background: #ffffff;
   border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
 }
 
-/* Header */
+/* =========================================================
+   HEADER
+========================================================= */
 .login-header {
   background: linear-gradient(135deg, #2575fc, #6a11cb);
-  color: white;
+  color: #ffffff;
   text-align: center;
-  padding: 36px 24px 24px;
+  padding: clamp(24px, 5vw, 36px) 24px 24px;
   position: relative;
 }
 
 .login-header::after {
   content: "";
   position: absolute;
-  bottom: -30px;
+  bottom: -28px;
   left: 0;
   width: 100%;
-  height: 60px;
-  background: white;
+  height: 56px;
+  background: #ffffff;
   border-radius: 50% 50% 0 0;
 }
 
@@ -49,7 +79,7 @@
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.25);
+  background: rgba(255, 255, 255, 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -57,31 +87,75 @@
 }
 
 .login-header h2 {
-  font-size: 22px;
+  font-size: clamp(16px, 4vw, 20px);
+  margin: 0;
 }
 
 .login-header h1 {
   margin-top: 10px;
-  font-size: 26px;
+  font-size: clamp(20px, 5vw, 26px);
 }
 
 .login-header p {
   margin-top: 6px;
+  font-size: 14px;
   opacity: 0.9;
 }
 
-/* Form */
+/* =========================================================
+   FORM WRAPPER
+========================================================= */
 .login-form {
-  padding: 40px 28px 28px;
+  padding: 48px 28px 28px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 18px;
+}
+
+/* =========================================================
+   SWITCH BUTTONS (PASSWORD / OTP)
+========================================================= */
+.login-switch {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.login-switch button {
+  flex: 1;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.login-switch button.active {
+  background: linear-gradient(135deg, #6a11cb, #2575fc);
+  color: #ffffff;
+  border-color: transparent;
+}
+
+.login-switch button:hover {
+  background: #e5e7eb;
+}
+
+/* =========================================================
+   FORM GROUP
+========================================================= */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .form-group label {
   font-size: 14px;
   font-weight: 500;
-  color: #333;
+  color: #374151;
 }
 
 .form-group input {
@@ -90,23 +164,27 @@
   font-size: 16px;
   border-radius: 10px;
   border: 1px solid #d1d5db;
+  background: #ffffff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .form-group input:focus {
   outline: none;
   border-color: #6a11cb;
-  box-shadow: 0 0 0 3px rgba(106,17,203,0.15);
+  box-shadow: 0 0 0 3px rgba(106, 17, 203, 0.15);
 }
 
-/* Options */
+/* =========================================================
+   OPTIONS
+========================================================= */
 .form-options {
   display: flex;
   justify-content: flex-end;
 }
 
 .forgot-password {
-  color: #6a11cb;
   font-size: 14px;
+  color: #6a11cb;
   text-decoration: none;
 }
 
@@ -114,30 +192,58 @@
   text-decoration: underline;
 }
 
-/* Button */
-.login-button {
+/* =========================================================
+   BUTTONS
+========================================================= */
+.login-button,
+.otp-button {
+  width: 100%;
+  min-height: 48px; /* touch-friendly */
   padding: 14px;
   font-size: 16px;
   font-weight: 600;
-  color: white;
-  border: none;
   border-radius: 10px;
+  border: none;
   cursor: pointer;
-  background: linear-gradient(135deg, #6a11cb, #2575fc);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.login-button:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+.login-button {
+  color: #ffffff;
+  background: linear-gradient(135deg, #6a11cb, #2575fc);
 }
 
-.login-button:disabled {
+.otp-button {
+  color: #2575fc;
+  background: #e0e7ff;
+}
+
+.login-button:hover:not(:disabled),
+.otp-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.login-button:disabled,
+.otp-button:disabled {
   background: #9ca3af;
   cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
 }
 
-/* Error */
+/* =========================================================
+   OTP INFO
+========================================================= */
+.otp-info {
+  font-size: 14px;
+  text-align: center;
+  color: #374151;
+}
+
+/* =========================================================
+   ERROR MESSAGE
+========================================================= */
 .alert-error {
   background: #fee2e2;
   color: #b91c1c;
@@ -147,28 +253,47 @@
   font-size: 14px;
 }
 
-/* Tablet */
+/* =========================================================
+   TABLET
+========================================================= */
 @media (max-width: 768px) {
-  .login-header h1 {
-    font-size: 24px;
-  }
   .login-form {
-    padding: 32px 20px;
+    padding: 36px 20px 24px;
   }
 }
 
-/* Mobile */
+/* =========================================================
+   MOBILE
+========================================================= */
 @media (max-width: 480px) {
   .login-card {
     border-radius: 12px;
   }
+
   .login-header {
     padding: 28px 16px 20px;
   }
-  .login-header h1 {
-    font-size: 22px;
-  }
+
   .login-form {
-    padding: 28px 16px;
+    padding: 32px 16px 24px;
+  }
+}
+
+/* =========================================================
+   VERY SMALL DEVICES
+========================================================= */
+@media (max-width: 360px) {
+  html {
+    font-size: 15px;
+  }
+}
+
+/* =========================================================
+   ACCESSIBILITY
+========================================================= */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
   }
 }

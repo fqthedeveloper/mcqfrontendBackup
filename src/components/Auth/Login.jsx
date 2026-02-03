@@ -96,6 +96,10 @@ export default function Login() {
             {loading ? "Signing In..." : "Sign In"}
           </button>
         </form>
+          
+        <div className="login-header">
+         <p> Other Login <Link to="/login-otp" style={{backgroundColor: "#ffff"}}>OTP Login</Link> </p>
+        </div>
       </div>
     </div>
   );

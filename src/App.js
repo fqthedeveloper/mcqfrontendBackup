@@ -16,10 +16,12 @@ import Footer from "./components/Shared/Footer";
 
 /* Auth */
 import Login from "./components/Auth/Login";
+import LoginOTP from "./components/Auth/LoginOTP";
 import ForgotPassword from "./components/Auth/ForgotPassword";
 import ResetPassword from "./components/Auth/ResetPassword";
 import ForcePasswordChange from "./components/Auth/ForcePasswordChange";
 import VerifyOTP from "./components/Auth/VerifyOTP";
+
 
 /* Admin */
 import AdminDashboard from "./components/Admin/Core/AdminDashboard";
@@ -108,6 +110,14 @@ function App() {
                 element={
                   <AuthRoute>
                     <Login />
+                  </AuthRoute>
+                }
+              />
+              <Route
+                path="/login-otp"
+                element={
+                  <AuthRoute>
+                    <LoginOTP />
                   </AuthRoute>
                 }
               />
@@ -259,7 +269,7 @@ function App() {
                 }
               />
 
-
+            
               {/* ===== STUDENT ===== */}
               <Route
                 path="/student"

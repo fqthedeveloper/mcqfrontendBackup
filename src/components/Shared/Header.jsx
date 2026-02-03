@@ -131,7 +131,7 @@ export default function Header() {
 
               {user && (
                 <button className="logout" onClick={handleLogout}>
-                  Logout
+                  <p className="logout0">Logout</p>
                 </button>
               )}
               

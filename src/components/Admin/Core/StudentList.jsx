@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { authGet, authPut } from "../../../services/api";
 
-
 export default function AdminStudentList() {
   const [students, setStudents] = useState([]);
   const [subjects, setSubjects] = useState([]);
@@ -21,14 +20,14 @@ export default function AdminStudentList() {
   }, []);
 
   const loadStudents = async () => {
-  const res = await authGet("/mcq/students/");
-  setStudents(Array.isArray(res) ? res : res.results || []);
-};
+    const res = await authGet("/mcq/students/");
+    setStudents(Array.isArray(res) ? res : res.results || []);
+  };
 
   const loadSubjects = async () => {
-  const res = await authGet("/mcq/subjects/");
-  setSubjects(Array.isArray(res) ? res : res.results || []);
-};
+    const res = await authGet("/mcq/subjects/");
+    setSubjects(Array.isArray(res) ? res : res.results || []);
+  };
 
   const startEdit = (s) => {
     setEditId(s.id);
@@ -70,10 +69,19 @@ export default function AdminStudentList() {
                 <tr key={s.id}>
                   <td>
                     <input
-                      value={form.first_name}
-                      onChange={(e) =>
-                        setForm({ ...form, first_name: e.target.value })
-                      }
+                      value={[form.first_name, form.last_name]
+                        .filter(Boolean)
+                        .join(" ")}
+                      onChange={(e) => {
+                        const value = e.target.value.trimStart();
+                        const parts = value.split(/\s+/);
+
+                        setForm({
+                          ...form,
+                          first_name: parts[0] || "",
+                          last_name: parts.slice(1).join(" "),
+                        });
+                      }}
                     />
                   </td>
 
@@ -127,7 +135,9 @@ export default function AdminStudentList() {
                 </tr>
               ) : (
                 <tr key={s.id}>
-                  <td>{s.first_name}</td>
+                  <td>
+                    {[s.first_name, s.last_name].filter(Boolean).join(" ")}
+                  </td>
                   <td>{s.email}</td>
                   <td>
                     {s.subjects?.length

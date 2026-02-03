@@ -1,17 +1,8 @@
-import {
-  post,
-  authPost,
-  getUser,
-  getToken,
-  setToken,
-  setUser,
-  removeToken,
-  removeUser,
-} from "./api";
+import { post, setToken, setUser, removeToken, removeUser } from "./api";
 
+/* ================= IDLE TIMER ================= */
 let idleTimer;
-const IDLE_LIMIT = 2 * 60 * 60 * 1000; // 2 hours
-
+const IDLE_LIMIT = 2 * 60 * 60 * 1000;
 const events = ["mousemove", "mousedown", "keypress", "scroll", "touchstart"];
 
 const resetIdleTimer = () => {
@@ -29,65 +20,52 @@ export const stopIdleTimer = () => {
   clearTimeout(idleTimer);
 };
 
-export const login = async (credentials) => {
-  const data = await post('/mcq/login/', credentials);
-  if (data?.token) {
-    setToken(data.token);
-  }
-  if (data) {
-    setUser(data);
+/* ================= LOGIN ================= */
+const login = async (credentials) => {
+  const res = await post("/mcq/login/", credentials);
+
+  if (res?.token) {
+    setToken(res.token);
+    setUser(res);
+    localStorage.setItem("user", JSON.stringify(res));
+    startIdleTimer();
   }
 
-  startIdleTimer();
-  return data;
+  return res;
 };
 
-export const logout = () => {
+/* ================= SEND OTP ================= */
+const sendLoginOTP = async (email) => {
+  return await post("/mcq/login/email/send-otp/", { email });
+};
+
+/* ================= VERIFY OTP ================= */
+const verifyLoginOTP = async ({ email, otp }) => {
+  const res = await post("/mcq/login/email/verify-otp/", { email, otp });
+
+  if (res?.token) {
+    setToken(res.token);
+    setUser(res);
+    localStorage.setItem("user", JSON.stringify(res));
+    startIdleTimer();
+  }
+
+  return res;
+};
+
+/* ================= LOGOUT ================= */
+const logout = () => {
   stopIdleTimer();
   removeToken();
   removeUser();
+  localStorage.removeItem("user");
   window.location.href = "/login";
 };
 
-export const getCurrentUser = () => getUser();
-
-export const changePassword = async (payload) => {
-  return authPost('/api/change-password/', payload);
-};
-
-export const sendOTP = async () => {
-  return authPost('/api/send-otp/', {});
-};
-
-export const verifyOTP = async (otp) => {
-  return authPost('/api/verify-otp/', { otp });
-};
-
-export const isAuthenticated = () => Boolean(getToken());
-
-export const isAdmin = () => {
-  const u = getUser();
-  return u && (u.role === 'admin' || u.is_staff || u.is_superuser);
-};
-
-export const isStudent = () => {
-  const u = getUser();
-  return u && (u.role === 'student' || u.role === 'student_user');
-};
-
-const authService = {
+export default {
   login,
+  sendLoginOTP,
+  verifyLoginOTP,
   logout,
-  getCurrentUser,
-  changePassword,
-  sendOTP,
-  verifyOTP,
-  isAuthenticated,
-  isAdmin,
-  isStudent,
   startIdleTimer,
-  stopIdleTimer,
 };
-
-export { authService };
-export default authService;
