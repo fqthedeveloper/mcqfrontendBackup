@@ -22,11 +22,6 @@ const StudentProfile = () => {
   /* ================= M2F STATUS (FIXED) ================= */
   const storedUser = getUser();
 
-  // 🔥 Normalize old + new keys
-  const isM2FEnabled =
-    storedUser?.is_totp_enabled === true ||
-    storedUser?.totp_enabled === true;
-
   useEffect(() => {
     fetchProfile();
 

@@ -62,10 +62,12 @@ const logout = () => {
   window.location.href = "/login";
 };
 
-export default {
+const authService = {
   login,
   sendLoginOTP,
   verifyLoginOTP,
   logout,
   startIdleTimer,
 };
+
+export default authService;

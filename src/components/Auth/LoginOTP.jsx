@@ -6,7 +6,7 @@ import "../../styles/CSS/LoginOTP.css";
 
 export default function LoginOTP() {
   const navigate = useNavigate();
-  const { user, verifyOTP } = useAuth();
+  const { verifyOTP } = useAuth();
 
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState("");
