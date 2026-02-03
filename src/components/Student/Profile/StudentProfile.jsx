@@ -1,10 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { authGet, authPut, getUser, setUser } from "../../../services/api";
-import { useNavigate } from "react-router-dom";
 import "./StudentProfile.css";
 
 const StudentProfile = () => {
-  const navigate = useNavigate();
 
   const [profile, setProfile] = useState({
     first_name: "",
@@ -19,19 +17,8 @@ const StudentProfile = () => {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
-  /* ================= M2F STATUS (FIXED) ================= */
-  const storedUser = getUser();
-
   useEffect(() => {
     fetchProfile();
-
-    // 🔥 Self-heal localStorage (ONE TIME)
-    if (storedUser?.totp_enabled && !storedUser?.is_totp_enabled) {
-      setUser({
-        ...storedUser,
-        is_totp_enabled: true,
-      });
-    }
   }, []);
 
   const fetchProfile = async () => {
