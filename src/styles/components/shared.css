@@ -180,7 +180,7 @@
 }
 
 .mobile-nav a,
-.mobile-nav .logout {
+.mobile-nav {
   text-decoration: none;
   color: var(--text);
   background: none;
@@ -190,8 +190,7 @@
 }
 
 .logout0 {
-  color: var(--text) !important;
-  background: black !important;
+  color: red !important;
 }
 /* RESPONSIVE */
 @media (max-width: 900px) {
