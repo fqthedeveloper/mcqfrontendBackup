@@ -5,49 +5,48 @@ import { practicalService } from "../../../services/practicalService";
 import "./practical.css";
 
 export default function StudentPracticalExam() {
-  const { id: sessionId } = useParams();
+  const { sessionId } = useParams();
   const navigate = useNavigate();
 
   const [session, setSession] = useState(null);
   const [timeLeft, setTimeLeft] = useState(0);
 
-  /* ================= LOAD SESSION ================= */
-
   useEffect(() => {
-    practicalService.getSession(sessionId).then((res) => {
-      setSession(res);
-      setTimeLeft(res.duration * 60);
-    });
-  }, [sessionId]);
+    if (!sessionId || sessionId === "undefined") {
+      navigate("/student/practicals", { replace: true });
+      return;
+    }
 
-  /* ================= SUBMIT ================= */
+    practicalService.getSession(sessionId)
+      .then(res => {
+        setSession(res);
+        setTimeLeft(res.duration * 60);
+      })
+      .catch(() => {
+        navigate("/student/practicals", { replace: true });
+      });
+  }, [sessionId, navigate]);
 
-  const submitExam = useCallback(
-    async (auto = false) => {
-      if (!auto) {
-        const res = await Swal.fire({
-          title: "Submit Practical?",
-          icon: "warning",
-          showCancelButton: true,
-          confirmButtonText: "Submit",
-        });
-        if (!res.isConfirmed) return;
-      }
+  const submitExam = useCallback(async (auto = false) => {
+    if (!auto) {
+      const res = await Swal.fire({
+        title: "Submit Practical?",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Submit",
+      });
+      if (!res.isConfirmed) return;
+    }
 
-      await practicalService.submitSession(sessionId);
-      Swal.fire("Submitted", "Practical submitted successfully", "success");
-      navigate("/student/practicals");
-    },
-    [navigate, sessionId]
-  );
-
-  /* ================= TIMER ================= */
+    await practicalService.submitSession(sessionId);
+    Swal.fire("Submitted", "Practical submitted successfully", "success");
+    navigate("/student/practicals", { replace: true });
+  }, [navigate, sessionId]);
 
   useEffect(() => {
     if (!timeLeft) return;
-
     const timer = setInterval(() => {
-      setTimeLeft((t) => {
+      setTimeLeft(t => {
         if (t <= 1) {
           submitExam(true);
           return 0;
@@ -55,7 +54,6 @@ export default function StudentPracticalExam() {
         return t - 1;
       });
     }, 1000);
-
     return () => clearInterval(timer);
   }, [timeLeft, submitExam]);
 
@@ -73,11 +71,9 @@ export default function StudentPracticalExam() {
 
       <div className="exam-desc">{session.description}</div>
 
-      <div className="exam-actions">
-        <button className="btn-danger" onClick={() => submitExam(false)}>
-          Submit Practical
-        </button>
-      </div>
+      <button className="btn-danger" onClick={() => submitExam(false)}>
+        Submit Practical
+      </button>
     </div>
   );
 }

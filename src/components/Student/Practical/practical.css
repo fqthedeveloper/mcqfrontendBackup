@@ -1,125 +1,295 @@
-/* ===== COMMON ===== */
+/* ===============================
+   GLOBAL RESET & BASE
+================================ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, Ubuntu, "Helvetica Neue", Arial, sans-serif;
+  background: #f1f5f9;
+  color: #0f172a;
+  line-height: 1.5;
+}
+
+/* ===============================
+   COMMON LAYOUT
+================================ */
 .practical-page,
 .practical-exam,
-.page-container {
+.page-container,
+.rules-page,
+.starting-page {
   max-width: 1100px;
   margin: auto;
-  padding: 20px;
+  padding: 16px;
 }
 
 .loading {
   text-align: center;
-  padding: 40px;
-  font-size: 18px;
+  padding: 40px 20px;
+  font-size: 1.1rem;
 }
 
 .empty {
   text-align: center;
-  color: #777;
+  color: #64748b;
 }
 
-/* ===== STUDENT LIST ===== */
+/* ===============================
+   PRACTICAL LIST
+================================ */
 .practical-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 16px;
 }
 
 .practical-card {
-  background: #fff;
-  border-radius: 10px;
+  background: #ffffff;
+  border-radius: 12px;
   padding: 16px;
-  box-shadow: 0 4px 10px rgba(0,0,0,.08);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .practical-card h3 {
-  margin-bottom: 8px;
+  margin: 0 0 4px;
+  font-size: 1.1rem;
+}
+
+.practical-card p {
+  margin: 0;
+  font-size: 0.95rem;
 }
 
 .badge.success {
   color: #16a34a;
-  font-weight: bold;
+  font-weight: 600;
 }
 
-/* ===== EXAM ===== */
+/* ===============================
+   EXAM HEADER
+================================ */
 .exam-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .timer {
-  font-size: 18px;
+  font-size: 1.1rem;
   color: #dc2626;
-  font-weight: bold;
+  font-weight: 700;
 }
 
+/* ===============================
+   EXAM CONTENT
+================================ */
 .exam-desc {
   margin: 20px 0;
   padding: 16px;
-  background: #f8fafc;
-  border-radius: 8px;
+  background: #ffffff;
+  border-radius: 10px;
+  border-left: 4px solid #2563eb;
+  font-size: 0.95rem;
 }
 
-/* ===== BUTTONS ===== */
+/* ===============================
+   RULES PAGE
+================================ */
+.rules {
+  padding: 0;
+  margin: 20px 0;
+  list-style: none;
+}
+
+.rules li {
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  background: #ffffff;
+  border-radius: 8px;
+  border-left: 4px solid #16a34a;
+  font-size: 0.95rem;
+}
+
+/* ===============================
+   STARTING / LOADER
+================================ */
+.starting-page {
+  text-align: center;
+}
+
+.loader {
+  width: 64px;
+  height: 64px;
+  border: 6px solid #e5e7eb;
+  border-top: 6px solid #2563eb;
+  border-radius: 50%;
+  margin: 30px auto 16px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.step {
+  font-weight: 600;
+  margin-top: 10px;
+}
+
+.motivation {
+  color: #16a34a;
+  margin-top: 6px;
+  font-size: 0.9rem;
+}
+
+/* ===============================
+   BUTTONS (TOUCH FRIENDLY)
+================================ */
+button {
+  font-family: inherit;
+}
+
+.btn-primary,
+.btn-danger,
+.btn-secondary {
+  width: 100%;
+  max-width: 260px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: none;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
 .btn-primary {
   background: #2563eb;
   color: white;
-  padding: 8px 14px;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
 }
 
 .btn-danger {
   background: #dc2626;
   color: white;
-  padding: 10px 16px;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
 }
 
 .btn-secondary {
   background: #64748b;
   color: white;
-  padding: 6px 10px;
-  border-radius: 6px;
 }
 
-/* ===== ADMIN TABLE ===== */
+.btn-primary:hover,
+.btn-danger:hover,
+.btn-secondary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.15);
+}
+
+/* ===============================
+   TABLE (ADMIN / RESULT)
+================================ */
 .table-wrapper {
+  width: 100%;
   overflow-x: auto;
+  margin-top: 16px;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
+  background: #ffffff;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
-th, td {
-  padding: 10px;
-  border-bottom: 1px solid #ddd;
+th,
+td {
+  padding: 12px 10px;
+  text-align: left;
+  font-size: 0.9rem;
 }
 
 th {
   background: #f1f5f9;
+  font-weight: 600;
 }
 
-/* ===== FORM ===== */
+tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+/* ===============================
+   FORMS
+================================ */
 .form-grid {
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .checkbox-row {
   display: flex;
-  gap: 20px;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
-@media (max-width: 600px) {
+/* ===============================
+   RESPONSIVE BREAKPOINTS
+================================ */
+
+/* SMALL MOBILE */
+@media (max-width: 480px) {
+  html {
+    font-size: 15px;
+  }
+
   .exam-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .btn-primary,
+  .btn-danger,
+  .btn-secondary {
+    max-width: 100%;
+  }
+}
+
+/* TABLET */
+@media (max-width: 768px) {
+  .practical-grid {
+    gap: 12px;
+  }
+
+  .practical-card {
+    padding: 14px;
+  }
+
+  .exam-desc {
+    font-size: 0.9rem;
+  }
+}
+
+/* LARGE SCREENS */
+@media (min-width: 1280px) {
+  .practical-page,
+  .practical-exam,
+  .page-container {
+    max-width: 1200px;
   }
 }

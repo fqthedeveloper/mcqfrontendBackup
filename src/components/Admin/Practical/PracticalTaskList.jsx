@@ -23,6 +23,7 @@ const PracticalTaskList = () => {
 
   useEffect(() => {
     loadTasks();
+    document.title = "Practical Tasks - Admin";
   }, []);
 
   const handleEdit = (task) => {
@@ -30,12 +31,6 @@ const PracticalTaskList = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  useEffect(() => {
-    document.title = "Practical Task List - Admin";
-  }
-  , []);
-
-  
   return (
     <div className="page-container">
       <PracticalTaskForm
@@ -60,6 +55,7 @@ const PracticalTaskList = () => {
                 <th>Action</th>
               </tr>
             </thead>
+
             <tbody>
               {tasks.map((t) => (
                 <tr key={t.id}>
@@ -68,16 +64,20 @@ const PracticalTaskList = () => {
                   <td>{t.is_published ? "Yes" : "No"}</td>
                   <td>{t.is_active ? "Yes" : "No"}</td>
                   <td>
-                    <button className="btn-secondary" onClick={() => handleEdit(t)}>
+                    <button
+                      className="btn-secondary"
+                      onClick={() => handleEdit(t)}
+                    >
                       Edit
                     </button>
                   </td>
                 </tr>
               ))}
+
               {tasks.length === 0 && (
                 <tr>
                   <td colSpan="5" className="empty">
-                    No tasks available
+                    No practical tasks available
                   </td>
                 </tr>
               )}

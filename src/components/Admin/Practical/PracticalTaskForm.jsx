@@ -3,10 +3,7 @@ import Swal from "sweetalert2";
 import { api } from "../../../services/api";
 import "./practical.css";
 
-const PracticalTaskForm = ({
-  selectedTask,
-  onSuccess = () => {},
-}) => {
+const PracticalTaskForm = ({ selectedTask, onSuccess = () => {} }) => {
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -15,8 +12,8 @@ const PracticalTaskForm = ({
     description: "",
     subject: "",
     snapshot_name: "",
-    verify_command: "",
-    expected_output: "",
+    init_script: "",
+    verify_script: "",
     total_marks: 10,
     duration_minutes: 60,
     is_published: false,
@@ -26,7 +23,7 @@ const PracticalTaskForm = ({
   // ================= LOAD SUBJECTS =================
   useEffect(() => {
     api.get("/mcq/subjects/")
-      .then((res) => setSubjects(res.results || []))
+      .then((res) => setSubjects(res.results || res || []))
       .catch(() => {
         Swal.fire("Error", "Failed to load subjects", "error");
       });
@@ -48,8 +45,8 @@ const PracticalTaskForm = ({
         description: selectedTask.description || "",
         subject: selectedTask.subject || "",
         snapshot_name: selectedTask.snapshot_name || "",
-        verify_command: selectedTask.verify_command || "",
-        expected_output: selectedTask.expected_output || "",
+        init_script: selectedTask.init_script || "",
+        verify_script: selectedTask.verify_script || "",
         total_marks: selectedTask.total_marks || 10,
         duration_minutes: selectedTask.duration_minutes || 60,
         is_published: selectedTask.is_published || false,
@@ -75,49 +72,36 @@ const PracticalTaskForm = ({
     try {
       if (selectedTask && selectedTask.id) {
         await api.put(`/practical/tasks/${selectedTask.id}/`, form);
-
-        Swal.fire({
-          icon: "success",
-          title: "Updated",
-          text: "Practical task updated successfully",
-        });
+        Swal.fire("Updated", "Practical task updated successfully", "success");
       } else {
         await api.post("/practical/tasks/", form);
-
-        Swal.fire({
-          icon: "success",
-          title: "Created",
-          text: "Practical task created successfully",
-        });
+        Swal.fire("Created", "Practical task created successfully", "success");
       }
 
       onSuccess();
-
       setForm({
         title: "",
         description: "",
         subject: "",
         snapshot_name: "",
-        verify_command: "",
-        expected_output: "",
+        init_script: "",
+        verify_script: "",
         total_marks: 10,
         duration_minutes: 60,
         is_published: false,
         is_active: true,
       });
-    } catch (error) {
-      Swal.fire({
-        icon: "error",
-        title: "Failed",
-        text: "Unable to save practical task",
-      });
+    } catch {
+      Swal.fire("Error", "Failed to save practical task", "error");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    document.title = selectedTask ? "Edit Practical Task - Admin" : "Add Practical Task - Admin";
+    document.title = selectedTask
+      ? "Edit Practical Task - Admin"
+      : "Add Practical Task - Admin";
   }, [selectedTask]);
 
   return (
@@ -127,33 +111,96 @@ const PracticalTaskForm = ({
       </h3>
 
       <form className="form-grid" onSubmit={handleSubmit}>
-        <input name="title" placeholder="Title" value={form.title} onChange={handleChange} required />
+        <input
+          name="title"
+          placeholder="Task Title"
+          value={form.title}
+          onChange={handleChange}
+          required
+        />
 
-        <select name="subject" value={form.subject} onChange={handleChange} required>
+        <select
+          name="subject"
+          value={form.subject}
+          onChange={handleChange}
+          required
+        >
           <option value="">Select Subject</option>
           {subjects.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
           ))}
         </select>
 
-        <textarea name="description" placeholder="Description" value={form.description} onChange={handleChange} required />
+        <textarea
+          name="description"
+          placeholder="Task Description (shown to student)"
+          value={form.description}
+          onChange={handleChange}
+          required
+        />
 
-        <input name="snapshot_name" placeholder="Snapshot Name" value={form.snapshot_name} onChange={handleChange} required />
+        <input
+          name="snapshot_name"
+          placeholder="Vagrant Box / Base Name"
+          value={form.snapshot_name}
+          onChange={handleChange}
+          required
+        />
 
-        <textarea name="verify_command" placeholder="Verify Command" value={form.verify_command} onChange={handleChange} required />
+        <textarea
+          name="init_script"
+          placeholder="INIT SCRIPT (runs at VM boot)"
+          value={form.init_script}
+          onChange={handleChange}
+          rows={8}
+          required
+        />
 
-        <input name="expected_output" placeholder="Expected Output" value={form.expected_output} onChange={handleChange} required />
+        <textarea
+          name="verify_script"
+          placeholder="VERIFY SCRIPT (must echo SCORE=number)"
+          value={form.verify_script}
+          onChange={handleChange}
+          rows={8}
+          required
+        />
 
-        <input type="number" name="total_marks" value={form.total_marks} onChange={handleChange} />
-        <input type="number" name="duration_minutes" value={form.duration_minutes} onChange={handleChange} />
+        <input
+          type="number"
+          name="total_marks"
+          value={form.total_marks}
+          onChange={handleChange}
+          min="1"
+        />
+
+        <input
+          type="number"
+          name="duration_minutes"
+          value={form.duration_minutes}
+          onChange={handleChange}
+          min="1"
+        />
 
         <div className="checkbox-row">
           <label>
-            <input type="checkbox" name="is_published" checked={form.is_published} onChange={handleChange} />
+            <input
+              type="checkbox"
+              name="is_published"
+              checked={form.is_published}
+              onChange={handleChange}
+            />
             Published
           </label>
+
           <label>
-            <input type="checkbox" name="is_active" checked={form.is_active} onChange={handleChange} />
+            <input
+              type="checkbox"
+              name="is_active"
+              checked={form.is_active}
+              onChange={handleChange}
+            />
             Active
           </label>
         </div>

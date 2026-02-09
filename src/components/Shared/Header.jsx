@@ -130,7 +130,7 @@ export default function Header() {
               )}
 
               {user && (
-                <button className="logout0" onClick={handleLogout}>
+                <button className="logout" onClick={handleLogout}>
                   <i className="fas fa-sign-out-alt" /> Logout
                 </button>
               )}

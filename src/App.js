@@ -53,6 +53,8 @@ import PracticeHome from "./components/Student/Practice/PracticeHome";
 import PracticeExam from "./components/Student/Practice/PracticeExam";
 import PracticeResult from "./components/Student/Practice/PracticeResult";
 
+import StudentPracticalRules from "./components/Student/Practical/StudentPracticalRules";
+import StudentPracticalStarting from "./components/Student/Practical/StudentPracticalStarting";
 
 import "./App.css";
 
@@ -335,8 +337,29 @@ function App() {
                   />
                 }
               />
+
               <Route
-                path="/student/practical/:id"
+                path="/student/practical/:taskId/rules"
+                element={
+                  <ProtectedRoute
+                    element={<StudentPracticalRules />}
+                    roles={["student"]}
+                  />
+                }
+              />
+
+              <Route
+                path="/student/practical/:taskId/start"
+                element={
+                  <ProtectedRoute
+                    element={<StudentPracticalStarting />}
+                    roles={["student"]}
+                  />
+                }
+              />
+
+              <Route
+                path="/student/practical/session/:sessionId"
                 element={
                   <ProtectedRoute
                     element={<StudentPracticalExam />}
@@ -344,7 +367,6 @@ function App() {
                   />
                 }
               />
-
 
               <Route
                 path="/student/practice"

@@ -7,7 +7,8 @@ export const practicalService = {
   updateTask: (id, data) => api.put(`/practical/tasks/${id}/`, data),
 
   // ===== STUDENT =====
-  getStudentPracticals: () => api.get("/practical/student-exams/"),
+  getStudentPracticals: () =>
+    api.get("/practical/student-exams/"),
 
   getPracticalDetail: (taskId) =>
     api.get(`/practical/student-exams/${taskId}/detail/`),
