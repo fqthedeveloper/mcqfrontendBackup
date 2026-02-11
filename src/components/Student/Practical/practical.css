@@ -1,295 +1,187 @@
-/* ===============================
-   GLOBAL RESET & BASE
-================================ */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-html {
-  font-size: 16px;
-}
-
-body {
-  margin: 0;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Roboto, Ubuntu, "Helvetica Neue", Arial, sans-serif;
-  background: #f1f5f9;
-  color: #0f172a;
-  line-height: 1.5;
-}
-
-/* ===============================
-   COMMON LAYOUT
-================================ */
-.practical-page,
-.practical-exam,
-.page-container,
-.rules-page,
-.starting-page {
-  max-width: 1100px;
-  margin: auto;
-  padding: 16px;
-}
-
-.loading {
-  text-align: center;
-  padding: 40px 20px;
-  font-size: 1.1rem;
-}
-
-.empty {
-  text-align: center;
-  color: #64748b;
-}
-
-/* ===============================
-   PRACTICAL LIST
-================================ */
-.practical-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 16px;
-}
-
-.practical-card {
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+/* 1. Global Reset for Exam Mode */
+.exam-mode-wrapper {
+  position: fixed; /* Covers the entire screen, hiding the site header */
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: #0f172a; /* Slate 900 */
   display: flex;
   flex-direction: column;
-  gap: 8px;
-}
-
-.practical-card h3 {
-  margin: 0 0 4px;
-  font-size: 1.1rem;
-}
-
-.practical-card p {
-  margin: 0;
-  font-size: 0.95rem;
-}
-
-.badge.success {
-  color: #16a34a;
-  font-weight: 600;
-}
-
-/* ===============================
-   EXAM HEADER
-================================ */
-.exam-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.timer {
-  font-size: 1.1rem;
-  color: #dc2626;
-  font-weight: 700;
-}
-
-/* ===============================
-   EXAM CONTENT
-================================ */
-.exam-desc {
-  margin: 20px 0;
-  padding: 16px;
-  background: #ffffff;
-  border-radius: 10px;
-  border-left: 4px solid #2563eb;
-  font-size: 0.95rem;
-}
-
-/* ===============================
-   RULES PAGE
-================================ */
-.rules {
-  padding: 0;
-  margin: 20px 0;
-  list-style: none;
-}
-
-.rules li {
-  padding: 10px 12px;
-  margin-bottom: 10px;
-  background: #ffffff;
-  border-radius: 8px;
-  border-left: 4px solid #16a34a;
-  font-size: 0.95rem;
-}
-
-/* ===============================
-   STARTING / LOADER
-================================ */
-.starting-page {
-  text-align: center;
-}
-
-.loader {
-  width: 64px;
-  height: 64px;
-  border: 6px solid #e5e7eb;
-  border-top: 6px solid #2563eb;
-  border-radius: 50%;
-  margin: 30px auto 16px;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.step {
-  font-weight: 600;
-  margin-top: 10px;
-}
-
-.motivation {
-  color: #16a34a;
-  margin-top: 6px;
-  font-size: 0.9rem;
-}
-
-/* ===============================
-   BUTTONS (TOUCH FRIENDLY)
-================================ */
-button {
-  font-family: inherit;
-}
-
-.btn-primary,
-.btn-danger,
-.btn-secondary {
-  width: 100%;
-  max-width: 260px;
-  padding: 12px 16px;
-  border-radius: 8px;
-  border: none;
-  font-size: 0.95rem;
-  cursor: pointer;
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
-}
-
-.btn-primary {
-  background: #2563eb;
-  color: white;
-}
-
-.btn-danger {
-  background: #dc2626;
-  color: white;
-}
-
-.btn-secondary {
-  background: #64748b;
-  color: white;
-}
-
-.btn-primary:hover,
-.btn-danger:hover,
-.btn-secondary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.15);
-}
-
-/* ===============================
-   TABLE (ADMIN / RESULT)
-================================ */
-.table-wrapper {
-  width: 100%;
-  overflow-x: auto;
-  margin-top: 16px;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: #ffffff;
-  border-radius: 8px;
+  z-index: 9999; /* Ensures it stays above navigation bars */
+  font-family: 'Inter', sans-serif;
   overflow: hidden;
 }
 
-th,
-td {
-  padding: 12px 10px;
-  text-align: left;
-  font-size: 0.9rem;
-}
-
-th {
-  background: #f1f5f9;
-  font-weight: 600;
-}
-
-tr:nth-child(even) {
-  background: #f8fafc;
-}
-
-/* ===============================
-   FORMS
-================================ */
-.form-grid {
-  display: grid;
-  gap: 12px;
-}
-
-.checkbox-row {
+/* 2. Status Bar (Top) */
+.exam-status-bar {
+  flex: 0 0 50px;
+  background: #1e293b;
+  border-bottom: 1px solid #334155;
   display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 20px;
+  color: #f8fafc;
 }
 
-/* ===============================
-   RESPONSIVE BREAKPOINTS
-================================ */
-
-/* SMALL MOBILE */
-@media (max-width: 480px) {
-  html {
-    font-size: 15px;
-  }
-
-  .exam-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .btn-primary,
-  .btn-danger,
-  .btn-secondary {
-    max-width: 100%;
-  }
+.live-indicator {
+  color: #ef4444;
+  font-weight: bold;
+  font-size: 12px;
+  margin-right: 15px;
+  animation: blink 2s infinite;
 }
 
-/* TABLET */
-@media (max-width: 768px) {
-  .practical-grid {
-    gap: 12px;
-  }
+@keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
 
-  .practical-card {
-    padding: 14px;
-  }
+.exam-name { font-weight: 600; font-size: 14px; }
+.time-text { font-family: 'Courier New', monospace; font-weight: bold; font-size: 18px; color: #fbbf24; }
 
-  .exam-desc {
-    font-size: 0.9rem;
-  }
+/* 3. Main Content Area */
+.exam-content-area {
+  flex: 1; /* Takes up all space between header and footer */
+  display: flex;
+  padding: 15px;
+  gap: 15px;
+  overflow: hidden;
 }
 
-/* LARGE SCREENS */
-@media (min-width: 1280px) {
-  .practical-page,
-  .practical-exam,
-  .page-container {
-    max-width: 1200px;
-  }
+/* Instructions */
+.instruction-panel {
+  flex: 0 0 350px;
+  background: #ffffff;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
 }
+
+.panel-header {
+  background: #4f46e5;
+  color: white;
+  padding: 12px;
+  font-weight: bold;
+  border-radius: 8px 8px 0 0;
+}
+
+.panel-body {
+  padding: 20px;
+  overflow-y: auto;
+  line-height: 1.6;
+  color: #334155;
+  font-size: 14px;
+}
+
+/* Terminal Panel */
+.terminal-panel {
+  flex: 1;
+  background: #000;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #334155;
+  overflow: hidden;
+}
+
+.terminal-window-chrome {
+  background: #334155;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+}
+
+.window-dots { display: flex; gap: 8px; margin-right: 20px; }
+.window-dots span { width: 12px; height: 12px; border-radius: 50%; }
+.dot-close { background: #ff5f56; }
+.dot-min { background: #ffbd2e; }
+.dot-max { background: #27c93f; }
+.window-title { color: #94a3b8; font-size: 12px; font-family: monospace; }
+
+.xterm-container-mount {
+  flex: 1;
+  padding: 10px;
+  background: #000 !important;
+}
+
+/* 4. Action Footer */
+.exam-action-bar {
+  flex: 0 0 80px;
+  background: #1e293b;
+  border-top: 1px solid #334155;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 30px;
+}
+
+.safety-note { color: #94a3b8; font-size: 13px; margin: 0; }
+
+.submit-practical-btn {
+  background: #2563eb;
+  color: white;
+  border: none;
+  padding: 12px 40px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.submit-practical-btn:hover { background: #1d4ed8; transform: translateY(-1px); }
+.submit-practical-btn:disabled { background: #475569; cursor: not-allowed; }
+
+/* Scrollbar Styling for Instructions */
+.panel-body::-webkit-scrollbar { width: 6px; }
+.panel-body::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+/* Loading State */
+.loading-screen {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #0f172a;
+  color: white;
+  font-size: 1.2rem;
+}
+
+.exam-timer.critical .time-text {
+  color: #ef4444; /* Bright Red */
+  animation: pulse-red 1s infinite;
+}
+
+@keyframes pulse-red {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+.submit-practical-btn {
+  background: #2563eb;
+  color: white;
+  border: none;
+  padding: 12px 35px;
+  border-radius: 6px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  z-index: 100; /* Ensure it is on top of any overlays */
+}
+
+.submit-practical-btn:hover:not(:disabled) {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.submit-practical-btn:disabled {
+  background: #94a3b8;
+  opacity: 0.7;
+}
+
+.exam-timer.critical {
+  color: #ef4444;
+  font-weight: bold;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink { 50% { opacity: 0.5; } }

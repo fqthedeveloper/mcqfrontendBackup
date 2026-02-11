@@ -53,6 +53,7 @@ export default function AdminDashboard() {
         {/* <Action title="Practice Runs" icon={<Icon.Timer />} onClick={() => navigate("/admin/practice-runs")} /> */}
         <Action title="Add Practical Task" icon={<Icon.Plus />} onClick={() => navigate("/admin/add-practical")} />
         <Action title="Practical Tasks" icon={<Icon.Exam />} onClick={() => navigate("/admin/list-practicals")} />
+        <Action title="Practical Results" icon={<Icon.Star />} onClick={() => navigate("/admin/practical/results")} />
       </section>
 
       {/* ================= STYLES ================= */}

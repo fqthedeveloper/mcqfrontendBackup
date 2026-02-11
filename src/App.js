@@ -39,6 +39,8 @@ import PracticeQuestionMapper from "./components/Admin/Practice/PracticeQuestion
 // Admin Pacticle 
 import PracticalTaskList from "./components/Admin/Practical/PracticalTaskList";
 import PracticalTaskForm from "./components/Admin/Practical/PracticalTaskForm";
+import AdminPracticalResultList from "./components/Admin/Practical/AdminPracticalResultList";
+
 
 /* Student */
 import StudentDashboard from "./components/Student/MCQ/StudentDashboard";
@@ -51,10 +53,10 @@ import StudentPracticalList from "./components/Student/Practical/StudentPractica
 import StudentPracticalExam from "./components/Student/Practical/StudentPracticalExam";
 import PracticeHome from "./components/Student/Practice/PracticeHome";
 import PracticeExam from "./components/Student/Practice/PracticeExam";
-import PracticeResult from "./components/Student/Practice/PracticeResult";
-
 import StudentPracticalRules from "./components/Student/Practical/StudentPracticalRules";
 import StudentPracticalStarting from "./components/Student/Practical/StudentPracticalStarting";
+import StudentPracticalResult from "./components/Student/Practical/StudentPracticalResult";
+import StudentPracticalResultList from "./components/Student/Practical/StudentPracticalResultList";
 
 import "./App.css";
 
@@ -270,6 +272,15 @@ function App() {
                   />
                 }
               />
+              <Route
+                  path="/admin/practical/results"
+                  element={
+                    <ProtectedRoute
+                      element={<AdminPracticalResultList />}
+                      roles={["admin"]}
+                    />
+                  }
+                />
 
             
               {/* ===== STUDENT ===== */}
@@ -328,6 +339,38 @@ function App() {
                 }
               />
 
+              {/*  ===== Practice Routes  ===== */}
+
+              <Route
+                path="/student/practice"
+                element={
+                  <ProtectedRoute
+                    element={<PracticeHome />}
+                    roles={["student"]}
+                  />
+                }
+              />
+              <Route
+                path="/student/practice/exam"
+                element={
+                  <ProtectedRoute
+                    element={<PracticeExam />}
+                    roles={["student"]}
+                  />
+                }
+              />
+              <Route
+                path="/student/practice/result"
+                element={
+                  <ProtectedRoute
+                    element={<StudentPracticalResultList />}
+                    roles={["student"]}
+                  />
+                }
+              />
+
+                {/*  ===== Practical Routes  ===== */}
+
               <Route
                 path="/student/practicals"
                 element={
@@ -369,29 +412,21 @@ function App() {
               />
 
               <Route
-                path="/student/practice"
+                path="/student/practical/results/"
                 element={
                   <ProtectedRoute
-                    element={<PracticeHome />}
+                    element={<StudentPracticalResultList />}
                     roles={["student"]}
                   />
                 }
               />
+
               <Route
-                path="/student/practice/exam"
+                path="/student/practical/result/:sessionId"
                 element={
                   <ProtectedRoute
-                    element={<PracticeExam />}
-                    roles={["student"]}
-                  />
-                }
-              />
-              <Route
-                path="/student/practice/result"
-                element={
-                  <ProtectedRoute
-                    element={<PracticeResult />}
-                    roles={["student"]}
+                    element={<StudentPracticalResult />}
+                    roles={["student", "admin"]}
                   />
                 }
               />

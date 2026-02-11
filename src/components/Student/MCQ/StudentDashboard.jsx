@@ -155,6 +155,7 @@ export default function StudentDashboard() {
             { icon: "📊", title: "Results", desc: "Check exam scores", path: "/student/results" },
             { icon: "📘", title: "Practice Exams", desc: "View & start exams", path: "/student/practice" },
             { icon: "📘", title: "Practical", desc: "View practical tasks", path: "/student/practicals" },
+            { icon: "📊", title: "Practical Results", desc: "View practical results", path: "/student/practical/results/" },
             // { icon: "👤", title: "Practical", desc: "View practical tasks", path: "/student/practicals" },
             { icon: "👤", title: "Profile", desc: "Account details", path: "/student/profile" },
           ].map((card, i) => (
