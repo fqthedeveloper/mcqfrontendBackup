@@ -3,22 +3,16 @@ import { api } from "./api";
 export const practicalService = {
 
   // ================= ADMIN =================
-  getTasks: () =>
-    api.get("/practical/tasks/"),
+  getTasks: () => api.get("/practical/tasks/"),
 
-  createTask: (data) =>
-    api.post("/practical/tasks/", data),
+  createTask: (data) => api.post("/practical/tasks/", data),
 
-  updateTask: (id, data) =>
-    api.put(`/practical/tasks/${id}/`, data),
+  updateTask: (id, data) => api.put(`/practical/tasks/${id}/`, data),
 
-  getAdminResults: () =>
-    api.get("/practical/admin/results/"),
-
+  getAdminResults: () => api.get("/practical/admin/results/"),
 
   // ================= STUDENT =================
-  getStudentPracticals: () =>
-    api.get("/practical/student-exams/"),
+  getStudentPracticals: () => api.get("/practical/student-exams/"),
 
   getPracticalDetail: (taskId) =>
     api.get(`/practical/student-exams/${taskId}/detail/`),
@@ -26,9 +20,7 @@ export const practicalService = {
   startPractical: (taskId) =>
     api.post(`/practical/student-exams/${taskId}/start/`),
 
-  getStudentResults: () =>
-    api.get("/practical/student/results/"),
-
+  getStudentResults: () => api.get("/practical/student/results/"),
 
   // ================= SESSION =================
   getPracticalSession: (sessionId) =>
@@ -40,18 +32,21 @@ export const practicalService = {
   getResultDetail: (id) =>
     api.get(`/practical/results/${id}/`),
 
-
   // ================= HISTORY =================
 
-  // 1️⃣ Get list of history files
+  // 1️⃣ Get history list
   getHistoryList: (id) =>
     api.get(`/practical/history/${id}/`),
 
-  // 2️⃣ Read specific history file
-  getHistoryFile: (id, filePath) =>
-    api.get(`/practical/history/${id}/file/`, {
-      params: {
-        file: filePath
-      }
-    })
+  // 2️⃣ Get single file (FINAL FIXED VERSION)
+  getHistoryFile: (sessionId, filePath) => {
+
+    const query = new URLSearchParams({
+      file: filePath
+    }).toString();
+
+    return api.get(
+      `/practical/history/${sessionId}/file/?${query}`
+    );
+  },
 };

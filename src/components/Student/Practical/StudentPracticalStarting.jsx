@@ -126,6 +126,12 @@ export default function StudentPracticalStarting() {
 
   const intro = TECH_INTROS[introIndex];
 
+
+  useEffect(() => {
+    document.title = "Preparing Your Exam Environment...";
+  } , []);
+
+  
   return (
     <div className="starting-page">
       <div className="card">

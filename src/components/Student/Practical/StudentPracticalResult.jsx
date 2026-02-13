@@ -16,6 +16,7 @@ export default function StudentPracticalResult() {
       .catch(err => console.error(err));
   }, [sessionId]);
 
+  
   const openFile = (path) => {
     practicalService.getHistoryFile(sessionId, path)
       .then(data => {
@@ -23,6 +24,10 @@ export default function StudentPracticalResult() {
       })
       .catch(err => console.error(err));
   };
+
+  useEffect(() => {
+    document.title = result ? `Result - ${result.task_title}` : "Loading...";
+  }, [result]);
 
   if (!result) return <div style={{ padding: 30 }}>Loading...</div>;
 

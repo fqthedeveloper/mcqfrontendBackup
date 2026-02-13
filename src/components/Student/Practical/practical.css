@@ -1,187 +1,334 @@
-/* 1. Global Reset for Exam Mode */
-.exam-mode-wrapper {
-  position: fixed; /* Covers the entire screen, hiding the site header */
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background-color: #0f172a; /* Slate 900 */
-  display: flex;
-  flex-direction: column;
-  z-index: 9999; /* Ensures it stays above navigation bars */
-  font-family: 'Inter', sans-serif;
+/* ============================= */
+/* FULL SCREEN EXAM MODE */
+/* ============================= */
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
   overflow: hidden;
 }
 
-/* 2. Status Bar (Top) */
-.exam-status-bar {
-  flex: 0 0 50px;
-  background: #1e293b;
-  border-bottom: 1px solid #334155;
+.exam-mode-wrapper {
+  position: fixed;
+  inset: 0;
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  background: #0f172a;
+  overflow: hidden;
+  z-index: 999;
+}
+
+/* ============================= */
+/* STATUS BAR */
+/* ============================= */
+
+.exam-status-bar {
+  background: #1e293b;
+  color: #fff;
+  height: 45px;
+  min-height: 45px;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 0 20px;
-  color: #f8fafc;
+  border-bottom: 1px solid #334155;
+  flex-shrink: 0;
 }
 
 .live-indicator {
   color: #ef4444;
-  font-weight: bold;
-  font-size: 12px;
-  margin-right: 15px;
+  margin-right: 10px;
   animation: blink 2s infinite;
 }
 
-@keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
-
-.exam-name { font-weight: 600; font-size: 14px; }
-.time-text { font-family: 'Courier New', monospace; font-weight: bold; font-size: 18px; color: #fbbf24; }
-
-/* 3. Main Content Area */
-.exam-content-area {
-  flex: 1; /* Takes up all space between header and footer */
-  display: flex;
-  padding: 15px;
-  gap: 15px;
-  overflow: hidden;
-}
-
-/* Instructions */
-.instruction-panel {
-  flex: 0 0 350px;
-  background: #ffffff;
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-}
-
-.panel-header {
-  background: #4f46e5;
-  color: white;
-  padding: 12px;
-  font-weight: bold;
-  border-radius: 8px 8px 0 0;
-}
-
-.panel-body {
-  padding: 20px;
-  overflow-y: auto;
-  line-height: 1.6;
-  color: #334155;
-  font-size: 14px;
-}
-
-/* Terminal Panel */
-.terminal-panel {
-  flex: 1;
-  background: #000;
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid #334155;
-  overflow: hidden;
-}
-
-.terminal-window-chrome {
-  background: #334155;
-  padding: 10px;
-  display: flex;
-  align-items: center;
-}
-
-.window-dots { display: flex; gap: 8px; margin-right: 20px; }
-.window-dots span { width: 12px; height: 12px; border-radius: 50%; }
-.dot-close { background: #ff5f56; }
-.dot-min { background: #ffbd2e; }
-.dot-max { background: #27c93f; }
-.window-title { color: #94a3b8; font-size: 12px; font-family: monospace; }
-
-.xterm-container-mount {
-  flex: 1;
-  padding: 10px;
-  background: #000 !important;
-}
-
-/* 4. Action Footer */
-.exam-action-bar {
-  flex: 0 0 80px;
-  background: #1e293b;
-  border-top: 1px solid #334155;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 30px;
-}
-
-.safety-note { color: #94a3b8; font-size: 13px; margin: 0; }
-
-.submit-practical-btn {
-  background: #2563eb;
-  color: white;
-  border: none;
-  padding: 12px 40px;
-  border-radius: 6px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.submit-practical-btn:hover { background: #1d4ed8; transform: translateY(-1px); }
-.submit-practical-btn:disabled { background: #475569; cursor: not-allowed; }
-
-/* Scrollbar Styling for Instructions */
-.panel-body::-webkit-scrollbar { width: 6px; }
-.panel-body::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-
-/* Loading State */
-.loading-screen {
-  height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: #0f172a;
-  color: white;
-  font-size: 1.2rem;
-}
-
-.exam-timer.critical .time-text {
-  color: #ef4444; /* Bright Red */
-  animation: pulse-red 1s infinite;
-}
-
-@keyframes pulse-red {
-  0% { opacity: 1; }
-  50% { opacity: 0.5; }
-  100% { opacity: 1; }
-}
-
-.submit-practical-btn {
-  background: #2563eb;
-  color: white;
-  border: none;
-  padding: 12px 35px;
-  border-radius: 6px;
-  font-weight: 600;
-  transition: all 0.2s ease;
-  z-index: 100; /* Ensure it is on top of any overlays */
-}
-
-.submit-practical-btn:hover:not(:disabled) {
-  background: #1d4ed8;
-  transform: translateY(-1px);
-}
-
-.submit-practical-btn:disabled {
-  background: #94a3b8;
-  opacity: 0.7;
+@keyframes blink {
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .exam-timer.critical {
   color: #ef4444;
   font-weight: bold;
-  animation: blink 1s infinite;
 }
 
-@keyframes blink { 50% { opacity: 0.5; } }
+/* ============================= */
+/* MAIN CONTENT */
+/* ============================= */
+
+.exam-content-area {
+  flex: 1;
+  display: flex;
+  padding: 15px;
+  gap: 15px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ============================= */
+/* INSTRUCTION PANEL */
+/* ============================= */
+
+.instruction-panel {
+  flex: 0 0 350px;
+  background: #fff;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panel-header {
+  background: #6366f1;
+  color: #fff;
+  padding: 12px;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.panel-body {
+  padding: 15px;
+  overflow-y: auto;
+  color: #334155;
+  font-size: 14px;
+  flex: 1;
+}
+.panel-body {
+  scroll-behavior: smooth;
+}
+
+/* ============================= */
+/* TERMINAL PANEL */
+/* ============================= */
+
+.terminal-panel {
+  flex: 1;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* Fake terminal chrome */
+.terminal-window-chrome {
+  background: #334155;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.window-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.dot-close,
+.dot-min,
+.dot-max {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.dot-close { background: #ff5f56; }
+.dot-min { background: #ffbd2e; }
+.dot-max { background: #27c93f; }
+
+.window-title {
+  margin-left: 20px;
+  color: #94a3b8;
+  font-size: 12px;
+  font-family: monospace;
+}
+
+/* ============================= */
+/* XTERM FIXED SIZING */
+/* ============================= */
+
+.xterm-container-mount {
+  flex: 1;
+  background: #000;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+}
+
+.xterm {
+  flex: 1 !important;
+  height: 100% !important;
+}
+
+.xterm-viewport {
+  overflow-y: auto !important;
+}
+
+/* ============================= */
+/* FOOTER */
+/* ============================= */
+
+.exam-action-bar {
+  height: 70px;
+  min-height: 70px;
+  background: #1e293b;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: white;
+  flex-shrink: 0;
+}
+
+.submit-practical-btn {
+  background: #2563eb;
+  color: white;
+  border: none;
+  padding: 12px 30px;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.submit-practical-btn:hover {
+  background: #1d4ed8;
+}
+
+/* ============================= */
+/* MODAL */
+/* ============================= */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modal-content {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  width: 400px;
+  text-align: center;
+}
+
+.modal-actions {
+  margin-top: 25px;
+  display: flex;
+  justify-content: space-around;
+}
+
+.btn-cancel {
+  background: #94a3b8;
+  border: none;
+  color: white;
+  padding: 8px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-confirm {
+  background: #ef4444;
+  border: none;
+  color: white;
+  padding: 8px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+/* ============================= */
+/* RESPONSIVE DESIGN */
+/* ============================= */
+
+@media (max-width: 1024px) {
+  .instruction-panel {
+    flex: 0 0 280px;
+  }
+}
+
+@media (max-width: 768px) {
+  .exam-content-area {
+    flex-direction: column;
+  }
+
+  .instruction-panel {
+    flex: none;
+    height: 35%;
+  }
+
+  .terminal-panel {
+    height: 65%;
+  }
+
+  .exam-status-bar {
+    font-size: 14px;
+  }
+
+  .exam-action-bar {
+    height: 60px;
+  }
+}
+
+@media (max-width: 480px) {
+  .instruction-panel {
+    height: 40%;
+  }
+
+  .terminal-panel {
+    height: 60%;
+  }
+
+  .submit-practical-btn {
+    padding: 8px 18px;
+    font-size: 14px;
+  }
+
+  .panel-body {
+    font-size: 12px;
+  }
+}
+
+/* ============================= */
+/* VERIFICATION PRELOADER */
+/* ============================= */
+
+.verification-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 5000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.verification-box {
+  background: #1e293b;
+  padding: 40px;
+  border-radius: 12px;
+  text-align: center;
+  color: white;
+  width: 350px;
+}
+
+.spinner {
+  width: 60px;
+  height: 60px;
+  border: 6px solid #334155;
+  border-top: 6px solid #6366f1;
+  border-radius: 50%;
+  margin: 0 auto 20px auto;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

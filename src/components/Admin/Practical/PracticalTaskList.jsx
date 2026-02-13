@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import Swal from "sweetalert2";
 import { api } from "../../../services/api";
 import PracticalTaskForm from "./PracticalTaskForm";
-import "./practical.css";
 
 const PracticalTaskList = () => {
   const [tasks, setTasks] = useState([]);
@@ -10,20 +9,14 @@ const PracticalTaskList = () => {
 
   const loadTasks = () => {
     api.get("/practical/tasks/")
-      .then((res) => {
-        setTasks(res || []);
-        if (!res || res.length === 0) {
-          Swal.fire("Info", "No practical tasks found", "info");
-        }
-      })
-      .catch(() => {
-        Swal.fire("Error", "Failed to load practical tasks", "error");
-      });
+      .then((res) => setTasks(res || []))
+      .catch(() =>
+        Swal.fire("Error", "Failed to load practical tasks", "error")
+      );
   };
 
   useEffect(() => {
     loadTasks();
-    document.title = "Practical Tasks - Admin";
   }, []);
 
   const handleEdit = (task) => {
@@ -32,61 +25,107 @@ const PracticalTaskList = () => {
   };
 
   return (
-    <div className="page-container">
-      <PracticalTaskForm
-        selectedTask={selectedTask}
-        onSuccess={() => {
-          setSelectedTask(null);
-          loadTasks();
-        }}
-      />
+    <div style={pageWrapper}>
+      <div style={container}>
+        <PracticalTaskForm
+          selectedTask={selectedTask}
+          onSuccess={() => {
+            setSelectedTask(null);
+            loadTasks();
+          }}
+        />
 
-      <div className="card">
-        <h3 className="card-title">All Practical Tasks</h3>
+        <div style={card}>
+          <h2 style={{ marginBottom: 20 }}>All Practical Tasks</h2>
 
-        <div className="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>Subject</th>
-                <th>Published</th>
-                <th>Active</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {tasks.map((t) => (
-                <tr key={t.id}>
-                  <td>{t.title}</td>
-                  <td>{t.subject_name}</td>
-                  <td>{t.is_published ? "Yes" : "No"}</td>
-                  <td>{t.is_active ? "Yes" : "No"}</td>
-                  <td>
-                    <button
-                      className="btn-secondary"
-                      onClick={() => handleEdit(t)}
-                    >
-                      Edit
-                    </button>
-                  </td>
+          <div style={{ overflowX: "auto" }}>
+            <table style={table}>
+              <thead>
+                <tr style={thead}>
+                  <th style={th}>Title</th>
+                  <th style={th}>Subject</th>
+                  <th style={th}>Published</th>
+                  <th style={th}>Active</th>
+                  <th style={th}>Action</th>
                 </tr>
-              ))}
-
-              {tasks.length === 0 && (
-                <tr>
-                  <td colSpan="5" className="empty">
-                    No practical tasks available
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {tasks.map((t) => (
+                  <tr key={t.id}>
+                    <td style={td}>{t.title}</td>
+                    <td style={td}>{t.subject_name}</td>
+                    <td style={td}>{t.is_published ? "Yes" : "No"}</td>
+                    <td style={td}>{t.is_active ? "Yes" : "No"}</td>
+                    <td style={td}>
+                      <button
+                        style={button}
+                        onClick={() => handleEdit(t)}
+                      >
+                        Edit
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
   );
+};
+
+/* STYLES */
+
+const pageWrapper = {
+  width: "100%",
+  background: "#f3f4f6",
+};
+
+const container = {
+  width: "100%",
+  maxWidth: "1400px",
+  margin: "0 auto",
+  padding: "40px 20px",
+  boxSizing: "border-box",
+};
+
+const card = {
+  background: "#ffffff",
+  borderRadius: "16px",
+  padding: "30px",
+  marginTop: "40px",
+  boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
+};
+
+const table = {
+  width: "100%",
+  borderCollapse: "collapse",
+};
+
+const thead = {
+  background: "#f3f4f6",
+};
+
+const th = {
+  padding: "14px",
+  textAlign: "left",
+  fontWeight: "600",
+  borderBottom: "1px solid #e5e7eb",
+};
+
+const td = {
+  padding: "14px",
+  borderBottom: "1px solid #e5e7eb",
+};
+
+const button = {
+  padding: "6px 12px",
+  borderRadius: "6px",
+  border: "none",
+  background: "#2563eb",
+  color: "#ffffff",
+  cursor: "pointer",
 };
 
 export default PracticalTaskList;
