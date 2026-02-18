@@ -6,111 +6,237 @@ export default function StudentPracticalResult() {
 
   const { sessionId } = useParams();
   const [result, setResult] = useState(null);
-  const [fileContent, setFileContent] = useState("");
+  const [activeTab, setActiveTab] = useState("raw");
+  const [animatedPercentage, setAnimatedPercentage] = useState(0);
 
   useEffect(() => {
     practicalService.getResultDetail(sessionId)
-      .then(data => {
-        setResult(data);
-      })
+      .then(data => setResult(data))
       .catch(err => console.error(err));
   }, [sessionId]);
 
-  
-  const openFile = (path) => {
-    practicalService.getHistoryFile(sessionId, path)
-      .then(data => {
-        setFileContent(data.content);
-      })
-      .catch(err => console.error(err));
-  };
-
   useEffect(() => {
-    document.title = result ? `Result - ${result.task_title}` : "Loading...";
+    if (!result) return;
+
+    let start = 0;
+    const end = result.percentage;
+    const duration = 1000;
+    const increment = end / (duration / 16);
+
+    const timer = setInterval(() => {
+      start += increment;
+      if (start >= end) {
+        start = end;
+        clearInterval(timer);
+      }
+      setAnimatedPercentage(Math.round(start));
+    }, 16);
+
+    return () => clearInterval(timer);
   }, [result]);
 
-  if (!result) return <div style={{ padding: 30 }}>Loading...</div>;
+  useEffect(() => {
+    if (result) {
+      document.title = `Result - ${result.task_title}`;
+    }
+  }, [result]);
+
+  if (!result) return <div className="loading">Loading...</div>;
+
+  const passed = result.percentage >= 80;
+
+  const radius = 65;
+  const stroke = 10;
+  const normalizedRadius = radius - stroke * 2;
+  const circumference = normalizedRadius * 2 * Math.PI;
+  const strokeDashoffset =
+    circumference - (animatedPercentage / 100) * circumference;
 
   return (
-    <div className="container">
+    <div className="page">
 
-      <h2>{result.task_title}</h2>
+      <div className="card">
 
-      <div className="info">
-        <p><strong>Student:</strong> {result.student}</p>
-        <p>Marks: {result.marks} / {result.total_marks}</p>
-        <p>Percentage: {result.percentage}%</p>
-        <p>VM Name: {result.vm_name}</p>
-      </div>
+        <h2 className="title">{result.task_title}</h2>
 
-      <hr />
+        <div className="info">
+          <div><strong>Student:</strong> {result.student}</div>
+          <div><strong>Marks:</strong> {result.marks} / {result.total_marks}</div>
+          <div><strong>VM:</strong> {result.vm_name}</div>
+        </div>
 
-      <div className="layout">
-        <div className="files">
-          <h4>History Files</h4>
+        {/* Progress */}
+        <div className="progress-wrapper">
 
-          {result.history_files && result.history_files.length > 0 ? (
-            result.history_files.map((f, i) => (
-              <div key={i} onClick={() => openFile(f.name)}>
-                {f.name}
+          <div className="circle">
+            <svg height={radius * 2} width={radius * 2}>
+              <circle
+                stroke="#e5e7eb"
+                fill="transparent"
+                strokeWidth={stroke}
+                r={normalizedRadius}
+                cx={radius}
+                cy={radius}
+              />
+              <circle
+                stroke={passed ? "#16c784" : "#ff3b3b"}
+                fill="transparent"
+                strokeWidth={stroke}
+                strokeDasharray={`${circumference} ${circumference}`}
+                strokeDashoffset={strokeDashoffset}
+                style={{ transition: "stroke-dashoffset 0.4s ease" }}
+                r={normalizedRadius}
+                cx={radius}
+                cy={radius}
+              />
+            </svg>
+
+            <div className="circle-text">
+              <div className="percent">{animatedPercentage}%</div>
+              <br />
+              <div className={`badge ${passed ? "pass" : "fail"}`}>
+                {passed ? "PASS" : "FAIL"}
               </div>
-            ))
-          ) : (
-            <p>No history files found.</p>
-          )}
+            </div>
+          </div>
+
         </div>
 
-        <div className="content">
-          <pre>{fileContent || "Select a file to view"}</pre>
+        {/* Tabs */}
+        <div className="tabs">
+          <button
+            className={activeTab === "raw" ? "active" : ""}
+            onClick={() => setActiveTab("raw")}
+          >
+            Raw Output
+          </button>
         </div>
+
+        {/* Raw Output */}
+        {activeTab === "raw" && (
+          <div className="terminal">
+            <pre>{result.raw_output || "No output available."}</pre>
+          </div>
+        )}
+
       </div>
 
       <style>{`
-        .container { padding: 30px; }
 
-        .layout {
+        .page {
+          min-height: 100vh;
+          padding: 20px;
+          background: linear-gradient(135deg,#eef2f7,#f8fafc);
           display: flex;
-          flex-wrap: wrap;
-          gap: 20px;
+          justify-content: center;
         }
 
-        .files {
-          flex: 1;
-          min-width: 250px;
-          border: 1px solid #ddd;
-          padding: 10px;
-          max-height: 400px;
-          overflow-y: auto;
+        .card {
+          width: 100%;
+          max-width: 850px;
+          background: white;
+          padding: 25px;
+          border-radius: 16px;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.08);
         }
 
-        .files div {
-          padding: 6px;
+        .title {
+          text-align: center;
+          font-size: 20px;
+          margin-bottom: 18px;
+        }
+
+        .info {
+          text-align: center;
+          font-size: 14px;
+          line-height: 1.8;
+        }
+
+        .progress-wrapper {
+          margin-top: 25px;
+          display: flex;
+          justify-content: center;
+        }
+
+        .circle {
+          position: relative;
+          width: 140px;
+          height: 140px;
+        }
+
+        .circle-text {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%,-50%);
+          text-align: center;
+        }
+
+        .percent {
+          font-size: 22px;
+          font-weight: bold;
+        }
+
+        .badge {
+          margin-top: -12px;
+          font-size: 11px;
+          padding: 4px 10px;
+          border-radius: 6px;
+          color: white;
+          font-weight: bold;
+        }
+
+        .pass { background:#16c784; }
+        .fail { background:#ff3b3b; }
+
+        .tabs {
+          margin-top: 25px;
+          display: flex;
+          justify-content: center;
+        }
+
+        .tabs button {
+          padding: 8px 18px;
+          border-radius: 8px;
+          border: none;
+          background: #2563eb;
+          color: white;
           cursor: pointer;
+          font-size: 13px;
         }
 
-        .files div:hover {
-          background: #f0f0f0;
-        }
-
-        .content {
-          flex: 2;
-          min-width: 300px;
-          background: #111;
-          color: #0f0;
-          padding: 10px;
-          max-height: 400px;
-          overflow-y: auto;
+        .terminal {
+          margin-top: 25px;
+          background: #0f172a;
+          color: #00ff90;
+          padding: 20px;
+          border-radius: 12px;
+          font-family: monospace;
+          font-size: 13px;
+          overflow-x: auto;
         }
 
         pre {
           white-space: pre-wrap;
-          word-wrap: break-word;
+          word-break: break-word;
         }
 
-        @media(max-width:768px){
-          .layout { flex-direction: column; }
+        .loading {
+          padding: 60px;
+          text-align: center;
         }
+
+        @media (min-width: 768px) {
+          .title { font-size: 24px; }
+          .circle { width: 160px; height: 160px; }
+        }
+
+        @media (min-width: 1024px) {
+          .title { font-size: 28px; }
+        }
+
       `}</style>
+
     </div>
   );
 }

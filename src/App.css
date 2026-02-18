@@ -23,14 +23,13 @@ body {
   color: var(--dark-text);
   background-color: #f5f7fa;
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
 }
 
 .main-content {
   flex: 1;
   padding: 20px;
-  min-height: calc(100vh - 120px);
+  min-height: auto;     /* remove forced height */
+  overflow-y: auto;     /* allow scrolling */
 }
 
 /* Header Styles */

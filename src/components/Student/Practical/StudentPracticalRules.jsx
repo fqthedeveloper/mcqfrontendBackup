@@ -37,6 +37,7 @@ export default function StudentPracticalRules() {
           <li style={styles.ruleItem}>Only terminal access is provided</li>
           <li style={styles.ruleItem}>Root privilege is allowed via sudo</li>
           <li style={styles.ruleItem}>Exam auto-submits on timeout</li>
+          <li style={styles.ruleItem}><b>Minimum Passing Score: 80%</b></li>
         </ul>
 
         <button style={styles.button} onClick={confirmStart}>

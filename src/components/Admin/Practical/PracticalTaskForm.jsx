@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, use } from "react";
 import Swal from "sweetalert2";
 import { api } from "../../../services/api";
 import Quill from "quill";
@@ -22,11 +22,14 @@ const PracticalTaskForm = ({ selectedTask, onSuccess }) => {
     is_active: true,
   });
 
+  /* ================= LOAD SUBJECTS ================= */
   useEffect(() => {
     api.get("/mcq/subjects/")
-      .then((res) => setSubjects(res.results || res || []));
+      .then((res) => setSubjects(res.results || res || []))
+      .catch(() => setSubjects([]));
   }, []);
 
+  /* ================= INIT QUILL ================= */
   useEffect(() => {
     if (!editorRef.current || quillRef.current) return;
 
@@ -43,15 +46,19 @@ const PracticalTaskForm = ({ selectedTask, onSuccess }) => {
     });
   }, []);
 
+  /* ================= EDIT MODE ================= */
   useEffect(() => {
     if (!selectedTask) return;
+
     setForm(selectedTask);
+
     if (quillRef.current) {
       quillRef.current.root.innerHTML =
         selectedTask.description || "";
     }
   }, [selectedTask]);
 
+  /* ================= HANDLE INPUT ================= */
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setForm({
@@ -60,6 +67,7 @@ const PracticalTaskForm = ({ selectedTask, onSuccess }) => {
     });
   };
 
+  /* ================= SUBMIT ================= */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -72,7 +80,8 @@ const PracticalTaskForm = ({ selectedTask, onSuccess }) => {
         await api.post("/practical/tasks/", form);
         Swal.fire("Created", "Task created successfully", "success");
       }
-      onSuccess();
+
+      if (onSuccess) onSuccess();
     } catch {
       Swal.fire("Error", "Failed to save task", "error");
     } finally {
@@ -80,259 +89,220 @@ const PracticalTaskForm = ({ selectedTask, onSuccess }) => {
     }
   };
 
+
+  useEffect(() => {
+    document.title = selectedTask ? "Edit Practical Task" : "Add Practical Task";
+  }, [selectedTask]);
+  
   return (
-    /* This outer div ensures the dashboard area allows scrolling */
-    <div style={scrollContainer}>
-      <div style={wrapperStyle}>
-        <div style={cardStyle}>
-          <h2 style={headingStyle}>
-            {selectedTask ? "Edit Practical Task" : "Add Practical Task"}
-          </h2>
+    <div style={mainContainer}>
+      <div style={cardStyle}>
+        <h2 style={headingStyle}>
+          {selectedTask ? "Edit Practical Task" : "Add Practical Task"}
+        </h2>
 
-          <form onSubmit={handleSubmit} style={formStyle}>
-            {/* Title and Subject */}
-            <div style={gridResponsive}>
-              <div style={inputGroup}>
-                <label style={labelStyle}>Task Title</label>
-                <input
-                  name="title"
-                  placeholder="Enter title..."
-                  value={form.title}
-                  onChange={handleChange}
-                  style={inputStyle}
-                  required
-                />
-              </div>
+        <form onSubmit={handleSubmit}>
 
-              <div style={inputGroup}>
-                <label style={labelStyle}>Subject</label>
-                <select
-                  name="subject"
-                  value={form.subject}
-                  onChange={handleChange}
-                  style={inputStyle}
-                  required
-                >
-                  <option value="">Select Subject</option>
-                  {subjects.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
-              </div>
+          {/* Title + Subject */}
+          <div style={grid}>
+            <div style={group}>
+              <label style={label}>Task Title</label>
+              <input
+                name="title"
+                value={form.title}
+                onChange={handleChange}
+                placeholder="Enter title..."
+                style={input}
+                required
+              />
             </div>
 
-            {/* Description Editor */}
-            <div style={{ marginBottom: 25 }}>
-              <label style={labelStyle}>Task Description</label>
-              <div ref={editorRef} style={editorStyle} />
+            <div style={group}>
+              <label style={label}>Subject</label>
+              <select
+                name="subject"
+                value={form.subject}
+                onChange={handleChange}
+                style={input}
+                required
+              >
+                <option value="">Select Subject</option>
+                {subjects.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div style={{ marginBottom: 30 }}>
+            <label style={label}>Task Description</label>
+            <div ref={editorRef} style={editor} />
+          </div>
+
+          {/* Marks + Duration */}
+          <div style={grid}>
+            <div style={group}>
+              <label style={label}>Total Marks</label>
+              <input
+                type="number"
+                name="total_marks"
+                value={form.total_marks}
+                onChange={handleChange}
+                style={input}
+              />
             </div>
 
-            {/* Marks and Duration */}
-            <div style={gridResponsive}>
-              <div style={inputGroup}>
-                <label style={labelStyle}>Total Marks</label>
-                <input
-                  type="number"
-                  name="total_marks"
-                  value={form.total_marks}
-                  onChange={handleChange}
-                  style={inputStyle}
-                />
-              </div>
+            <div style={group}>
+              <label style={label}>Duration (Minutes)</label>
+              <input
+                type="number"
+                name="duration_minutes"
+                value={form.duration_minutes}
+                onChange={handleChange}
+                style={input}
+              />
+            </div>
+          </div>
 
-              <div style={inputGroup}>
-                <label style={labelStyle}>Duration (Minutes)</label>
-                <input
-                  type="number"
-                  name="duration_minutes"
-                  value={form.duration_minutes}
-                  onChange={handleChange}
-                  style={inputStyle}
-                />
-              </div>
+          {/* Scripts */}
+          <div style={grid}>
+            <div style={group}>
+              <label style={label}>Init Script (Setup)</label>
+              <textarea
+                name="init_script"
+                value={form.init_script}
+                onChange={handleChange}
+                rows={8}
+                style={textarea}
+              />
             </div>
 
-            {/* Scripts Row */}
-            <div style={gridResponsive}>
-              <div style={inputGroup}>
-                <label style={labelStyle}>Init Script (Setup)</label>
-                <textarea
-                  name="init_script"
-                  placeholder="Bash script to setup the environment..."
-                  value={form.init_script}
-                  onChange={handleChange}
-                  style={textareaStyle}
-                  rows={6}
-                />
-              </div>
-
-              <div style={inputGroup}>
-                <label style={labelStyle}>Verify Script (Grading)</label>
-                <textarea
-                  name="verify_script"
-                  placeholder="Bash script to check the solution..."
-                  value={form.verify_script}
-                  onChange={handleChange}
-                  style={textareaStyle}
-                  rows={6}
-                />
-              </div>
+            <div style={group}>
+              <label style={label}>Verify Script (Grading)</label>
+              <textarea
+                name="verify_script"
+                value={form.verify_script}
+                onChange={handleChange}
+                rows={8}
+                style={textarea}
+              />
             </div>
+          </div>
 
-            {/* Status Checkboxes */}
-            <div style={checkboxContainer}>
-              <label style={checkboxLabel}>
-                <input
-                  type="checkbox"
-                  name="is_published"
-                  checked={form.is_published}
-                  onChange={handleChange}
-                />
-                Published
-              </label>
+          {/* Checkboxes */}
+          <div style={checkboxRow}>
+            <label>
+              <input
+                type="checkbox"
+                name="is_published"
+                checked={form.is_published}
+                onChange={handleChange}
+              /> Published
+            </label>
 
-              <label style={checkboxLabel}>
-                <input
-                  type="checkbox"
-                  name="is_active"
-                  checked={form.is_active}
-                  onChange={handleChange}
-                />
-                Active
-              </label>
-            </div>
+            <label>
+              <input
+                type="checkbox"
+                name="is_active"
+                checked={form.is_active}
+                onChange={handleChange}
+              /> Active
+            </label>
+          </div>
 
-            {/* Submit Button - Now visible at bottom */}
-            <div style={buttonWrapper}>
-              <button type="submit" style={submitStyle} disabled={loading}>
-                {loading ? "Saving..." : "Save Task"}
-              </button>
-            </div>
-          </form>
-        </div>
+          {/* Submit */}
+          <button type="submit" style={button} disabled={loading}>
+            {loading ? "Saving..." : "Save Task"}
+          </button>
+
+        </form>
       </div>
     </div>
   );
 };
 
-/* ================= UPDATED CSS TO FIX SCROLLING ================= */
+/* ================= IMPORTANT SCROLL FIX ================= */
 
-const scrollContainer = {
+const mainContainer = {
+  minHeight: "100vh",
   width: "100%",
-  height: "100%",      // Take full height of parent
-  overflowY: "auto",   // IMPORTANT: Force this container to scroll
-  display: "block",
-};
-
-const wrapperStyle = {
-  width: "100%",
-  minHeight: "100%",
-  padding: "40px 20px 100px 20px", // Large bottom padding for extra space
   background: "#f1f5f9",
+  padding: "40px 20px 120px 20px",
   boxSizing: "border-box",
+  overflowY: "auto",   // THIS enables page scroll
 };
 
 const cardStyle = {
-  background: "#ffffff",
-  padding: "40px",
-  borderRadius: 16,
-  boxShadow: "0 10px 30px rgba(0,0,0,0.1)",
+  background: "#fff",
   maxWidth: 1000,
   margin: "0 auto",
-  width: "100%",
-  boxSizing: "border-box",
+  padding: 40,
+  borderRadius: 16,
+  boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
 };
 
 const headingStyle = {
-  marginBottom: 30,
-  fontSize: "24px",
-  fontWeight: "bold",
   textAlign: "center",
-  color: "#1e293b",
+  marginBottom: 30,
+  fontSize: 24,
+  fontWeight: "bold",
 };
 
-const formStyle = {
-  width: "100%",
-};
-
-const gridResponsive = {
+const grid = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
   gap: 24,
   marginBottom: 24,
 };
 
-const inputGroup = {
+const group = {
   display: "flex",
   flexDirection: "column",
   gap: 8,
 };
 
-const labelStyle = {
-  fontSize: "14px",
-  fontWeight: "600",
-  color: "#475569",
+const label = {
+  fontWeight: 600,
+  fontSize: 14,
 };
 
-const inputStyle = {
-  padding: "12px",
+const input = {
+  padding: 12,
   borderRadius: 8,
   border: "1px solid #cbd5e1",
-  width: "100%",
-  fontSize: "15px",
-  boxSizing: "border-box",
 };
 
-const textareaStyle = {
-  padding: "12px",
+const textarea = {
+  padding: 12,
   borderRadius: 8,
   border: "1px solid #cbd5e1",
-  resize: "vertical",
-  width: "100%",
-  fontSize: "14px",
   fontFamily: "monospace",
-  boxSizing: "border-box",
+  resize: "vertical",
 };
 
-const editorStyle = {
-  background: "white",
-  borderRadius: "0 0 8px 8px",
-  minHeight: "200px",
-  width: "100%",
+const editor = {
+  minHeight: 220,
+  background: "#fff",
 };
 
-const checkboxContainer = {
+const checkboxRow = {
   display: "flex",
   gap: 30,
-  marginTop: 10,
-  padding: "10px 0",
+  marginBottom: 30,
 };
 
-const checkboxLabel = {
-  display: "flex",
-  alignItems: "center",
-  gap: 10,
-  fontSize: "15px",
-  cursor: "pointer",
-  color: "#334155",
-};
-
-const buttonWrapper = {
-  marginTop: 30,
-  borderTop: "1px solid #e2e8f0",
-  paddingTop: 30,
-};
-
-const submitStyle = {
-  padding: "16px",
-  borderRadius: 8,
-  border: "none",
-  background: "#2563eb",
-  color: "white",
-  cursor: "pointer",
+const button = {
   width: "100%",
-  fontSize: "16px",
-  fontWeight: "600",
+  padding: 16,
+  background: "#2563eb",
+  color: "#fff",
+  border: "none",
+  borderRadius: 8,
+  fontWeight: 600,
+  cursor: "pointer",
 };
 
 export default PracticalTaskForm;
