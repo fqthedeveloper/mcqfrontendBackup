@@ -161,6 +161,8 @@ export default function StudentPracticalExam() {
   // =====================================================
   // TERMINAL (UNCHANGED)
   // =====================================================
+  // ================= TERMINAL =================
+  // ================= TERMINAL =================
   useEffect(() => {
     if (!session || !terminalRef.current) return;
 
@@ -169,43 +171,82 @@ export default function StudentPracticalExam() {
       fontSize: window.innerWidth < 768 ? 12 : 16,
       fontFamily: 'Menlo, Monaco, "Courier New", monospace',
       theme: { background: "#000000", foreground: "#ffffff" },
+      scrollback: 5000,
+      allowTransparency: false,
       convertEol: true,
+      rendererType: "canvas",
+      smoothScrollDuration: 0
     });
 
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
+
     term.open(terminalRef.current);
+
+    // Initial Fit
     setTimeout(() => {
-        try {
-          fitAddon.fit();
-        } catch {}
-      }, 100);
+      try {
+        fitAddon.fit();
+      } catch (e) {}
+    }, 100);
 
     try {
       const webglAddon = new WebglAddon();
       term.loadAddon(webglAddon);
       webglAddonRef.current = webglAddon;
-    } catch {}
+    } catch (e) {}
 
     termRef.current = term;
     fitAddonRef.current = fitAddon;
 
-    const protocol =
-      window.location.protocol === "https:" ? "wss" : "ws";
-
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const ws = new WebSocket(
       `${protocol}://localhost:8000/ws/practical/terminal/${sessionId}/?token=${localStorage.getItem("token")}`
     );
 
     socketRef.current = ws;
 
-    ws.onmessage = (e) => term.write(e.data);
+    ws.onopen = () => {
+      // 🔥 THE FIX: Tell the backend our exact size as soon as we connect
+      if (fitAddonRef.current) {
+        fitAddonRef.current.fit();
+        ws.send(JSON.stringify({
+          type: "resize",
+          cols: term.cols,
+          rows: term.rows
+        }));
+      }
+    };
+
+    ws.onmessage = (e) => {
+      if (termRef.current) {
+        termRef.current.write(e.data);
+      }
+    };
+
     term.onData((data) => {
       if (ws.readyState === WebSocket.OPEN) ws.send(data);
     });
 
+    // Resize handler inside the main effect to use the socket
+    const handleResize = () => {
+      if (fitAddonRef.current && termRef.current && ws.readyState === WebSocket.OPEN) {
+        fitAddonRef.current.fit();
+        ws.send(JSON.stringify({
+          type: "resize",
+          cols: termRef.current.cols,
+          rows: termRef.current.rows
+        }));
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+
     return () => {
-      if (socketRef.current) socketRef.current.close();
+      window.removeEventListener("resize", handleResize);
+      if (socketRef.current) {
+        try { socketRef.current.close(); } catch {}
+      }
       if (webglAddonRef.current) {
         try { webglAddonRef.current.dispose(); } catch {}
       }
@@ -215,25 +256,22 @@ export default function StudentPracticalExam() {
     };
   }, [session, sessionId]);
 
+  // SAFE RESIZE
   useEffect(() => {
-  const handleResize = () => {
-    try {
-      if (fitAddonRef.current && terminalRef.current) {
-        setTimeout(() => {
-          try {
-            fitAddonRef.current.fit();
-          } catch (e) {}
-        }, 100);
-      }
-    } catch (e) {}
-  };
+    const handleResize = () => {
+      if (!fitAddonRef.current || !termRef.current) return;
 
-  window.addEventListener("resize", handleResize);
+      setTimeout(() => {
+        try {
+          fitAddonRef.current.fit();
+          termRef.current.refresh(0, termRef.current.rows - 1);
+        } catch {}
+      }, 150);
+    };
 
-  return () => {
-    window.removeEventListener("resize", handleResize);
-  };
-}, []);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     document.title = session ? `${session.title} - Practical Exam` : "Loading Exam...";
@@ -327,7 +365,7 @@ useEffect(() => {
               <span className="dot-min"></span>
               <span className="dot-max"></span>
             </div>
-            <div className="window-title">root@exam:~</div>
+            <div className="window-title">{session?.vm_name}</div>
           </div>
           <div ref={terminalRef} className="xterm-container-mount" />
         </div>

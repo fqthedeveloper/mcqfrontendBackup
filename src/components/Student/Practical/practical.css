@@ -104,27 +104,30 @@
   border-radius: 8px;
   overflow: hidden;
   min-width: 0;
+  border: 1px solid #334155;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
 }
 
 /* Fake terminal chrome */
 .terminal-window-chrome {
-  background: #334155;
-  padding: 8px 12px;
+  background: #1e293b; /* Slightly darker than your original for better contrast */
+  padding: 10px 15px;
   display: flex;
   align-items: center;
   flex-shrink: 0;
+  border-bottom: 1px solid #0f172a;
 }
 
 .window-dots {
   display: flex;
-  gap: 6px;
+  gap: 8px;
 }
 
 .dot-close,
 .dot-min,
 .dot-max {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
 }
 
@@ -133,31 +136,63 @@
 .dot-max { background: #27c93f; }
 
 .window-title {
-  margin-left: 20px;
+  margin-left: auto; /* Pushes title to center or right if preferred */
+  margin-right: auto;
   color: #94a3b8;
-  font-size: 12px;
-  font-family: monospace;
+  font-size: 13px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-weight: 500;
 }
 
 /* ============================= */
-/* XTERM FIXED SIZING */
+/* XTERM FIXED SIZING & FILL */
 /* ============================= */
 
 .xterm-container-mount {
   flex: 1;
   background: #000;
-  min-height: 0;
+  min-height: 0; /* Critical for flex child height calculation */
   overflow: hidden;
   display: flex;
+  padding: 10px; /* Gives the text some breathing room from edges */
 }
 
+/* The following overrides ensure xterm.js takes up 
+   100% of the parent mount point. 
+*/
 .xterm {
   flex: 1 !important;
+  height: 100% !important;
+  width: 100% !important;
+}
+
+.xterm-screen {
+  width: 100% !important;
   height: 100% !important;
 }
 
 .xterm-viewport {
+  background-color: #000 !important;
   overflow-y: auto !important;
+}
+
+/* Scrollbar styling for a cleaner look */
+.xterm-viewport::-webkit-scrollbar {
+  width: 10px;
+}
+
+.xterm-viewport::-webkit-scrollbar-track {
+  background: #000;
+}
+
+.xterm-viewport::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 5px;
+  border: 2px solid #000;
+}
+
+.xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background: #475569;
 }
 
 /* ============================= */

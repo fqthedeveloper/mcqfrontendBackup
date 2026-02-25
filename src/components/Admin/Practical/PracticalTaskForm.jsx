@@ -1,102 +1,140 @@
-import React, { useEffect, useState, useRef, use } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import Swal from "sweetalert2";
 import { api } from "../../../services/api";
 import Quill from "quill";
 import "quill/dist/quill.snow.css";
 
+const emptyForm = {
+  title: "",
+  description: "",
+  subject: "",
+  init_script: "",
+  verify_script: "",
+  total_marks: 10,
+  duration_minutes: 60,
+  is_published: false,
+  is_active: true,
+};
+
 const PracticalTaskForm = ({ selectedTask, onSuccess }) => {
+
   const [subjects, setSubjects] = useState([]);
+  const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(false);
-  const quillRef = useRef(null);
+
   const editorRef = useRef(null);
+  const quillRef = useRef(null);
 
-  const [form, setForm] = useState({
-    title: "",
-    description: "",
-    subject: "",
-    init_script: "",
-    verify_script: "",
-    total_marks: 10,
-    duration_minutes: 60,
-    is_published: false,
-    is_active: true,
-  });
-
-  /* ================= LOAD SUBJECTS ================= */
+  // ================= LOAD SUBJECTS =================
   useEffect(() => {
     api.get("/mcq/subjects/")
       .then((res) => setSubjects(res.results || res || []))
       .catch(() => setSubjects([]));
   }, []);
 
-  /* ================= INIT QUILL ================= */
+  // ================= INIT QUILL (ONLY ONCE) =================
   useEffect(() => {
-    if (!editorRef.current || quillRef.current) return;
+    if (!editorRef.current) return;
 
-    quillRef.current = new Quill(editorRef.current, {
-      theme: "snow",
-      placeholder: "Write task instructions...",
-    });
+    // Prevent double toolbar
+    if (!quillRef.current) {
+      quillRef.current = new Quill(editorRef.current, {
+        theme: "snow",
+        placeholder: "Write task instructions...",
+      });
 
-    quillRef.current.on("text-change", () => {
-      setForm((prev) => ({
-        ...prev,
-        description: quillRef.current.root.innerHTML,
-      }));
-    });
+      quillRef.current.on("text-change", () => {
+        setForm((prev) => ({
+          ...prev,
+          description: quillRef.current.root.innerHTML,
+        }));
+      });
+    }
+
   }, []);
 
-  /* ================= EDIT MODE ================= */
+  // ================= HANDLE EDIT =================
   useEffect(() => {
-    if (!selectedTask) return;
 
-    setForm(selectedTask);
+    if (selectedTask) {
 
-    if (quillRef.current) {
-      quillRef.current.root.innerHTML =
-        selectedTask.description || "";
+      const normalized = {
+        ...emptyForm,
+        ...selectedTask,
+        subject:
+          typeof selectedTask.subject === "object"
+            ? selectedTask.subject.id
+            : selectedTask.subject,
+      };
+
+      setForm(normalized);
+
+      if (quillRef.current) {
+        quillRef.current.root.innerHTML =
+          selectedTask.description || "";
+      }
+
+    } else {
+
+      setForm(emptyForm);
+
+      if (quillRef.current) {
+        quillRef.current.root.innerHTML = "";
+      }
     }
+
   }, [selectedTask]);
 
-  /* ================= HANDLE INPUT ================= */
+  // ================= HANDLE INPUT =================
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setForm({
-      ...form,
+
+    setForm((prev) => ({
+      ...prev,
       [name]: type === "checkbox" ? checked : value,
-    });
+    }));
   };
 
-  /* ================= SUBMIT ================= */
+  // ================= SUBMIT =================
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
+
       if (selectedTask?.id) {
-        await api.put(`/practical/tasks/${selectedTask.id}/`, form);
+        // UPDATE
+        await api.patch(`/practical/tasks/${selectedTask.id}/`, form);
         Swal.fire("Updated", "Task updated successfully", "success");
       } else {
+        // CREATE
         await api.post("/practical/tasks/", form);
         Swal.fire("Created", "Task created successfully", "success");
+
+        setForm(emptyForm);
+        if (quillRef.current) {
+          quillRef.current.root.innerHTML = "";
+        }
       }
 
       if (onSuccess) onSuccess();
-    } catch {
+
+    } catch (err) {
       Swal.fire("Error", "Failed to save task", "error");
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-
   useEffect(() => {
     document.title = selectedTask ? "Edit Practical Task" : "Add Practical Task";
   }, [selectedTask]);
-  
+
   return (
     <div style={mainContainer}>
       <div style={cardStyle}>
+
         <h2 style={headingStyle}>
           {selectedTask ? "Edit Practical Task" : "Add Practical Task"}
         </h2>
@@ -111,7 +149,6 @@ const PracticalTaskForm = ({ selectedTask, onSuccess }) => {
                 name="title"
                 value={form.title}
                 onChange={handleChange}
-                placeholder="Enter title..."
                 style={input}
                 required
               />
@@ -170,7 +207,7 @@ const PracticalTaskForm = ({ selectedTask, onSuccess }) => {
           {/* Scripts */}
           <div style={grid}>
             <div style={group}>
-              <label style={label}>Init Script (Setup)</label>
+              <label style={label}>Init Script</label>
               <textarea
                 name="init_script"
                 value={form.init_script}
@@ -181,7 +218,7 @@ const PracticalTaskForm = ({ selectedTask, onSuccess }) => {
             </div>
 
             <div style={group}>
-              <label style={label}>Verify Script (Grading)</label>
+              <label style={label}>Verify Script</label>
               <textarea
                 name="verify_script"
                 value={form.verify_script}
@@ -213,7 +250,6 @@ const PracticalTaskForm = ({ selectedTask, onSuccess }) => {
             </label>
           </div>
 
-          {/* Submit */}
           <button type="submit" style={button} disabled={loading}>
             {loading ? "Saving..." : "Save Task"}
           </button>
@@ -224,15 +260,14 @@ const PracticalTaskForm = ({ selectedTask, onSuccess }) => {
   );
 };
 
-/* ================= IMPORTANT SCROLL FIX ================= */
+/* ================= STYLES ================= */
 
 const mainContainer = {
   minHeight: "100vh",
   width: "100%",
   background: "#f1f5f9",
   padding: "40px 20px 120px 20px",
-  boxSizing: "border-box",
-  overflowY: "auto",   // THIS enables page scroll
+  overflowY: "auto",
 };
 
 const cardStyle = {
@@ -280,7 +315,6 @@ const textarea = {
   borderRadius: 8,
   border: "1px solid #cbd5e1",
   fontFamily: "monospace",
-  resize: "vertical",
 };
 
 const editor = {
