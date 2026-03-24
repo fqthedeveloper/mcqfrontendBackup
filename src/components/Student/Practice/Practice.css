@@ -167,10 +167,10 @@ body {
   color: #ffffff;
 }
 
-progress {
+.progress {
   font-size: 14px;
   height: max-content;
-  color: #ffffff; /* ✅ FIX: make it white */
+  color: #ffffff;
   font-weight: 600;
 }
 
@@ -186,7 +186,7 @@ progress {
 }
 
 /* =====================================================
-   OPTIONS
+   OPTIONS (FIXED)
 ===================================================== */
 .options {
   display: grid;
@@ -196,22 +196,26 @@ progress {
 .options button {
   padding: 15px 18px;
   border-radius: 14px;
-  background: #f8fafc;
-  border: 2px solid transparent;
+  background: #ffffff; /* white background */
+  border: 2px solid #e5e7eb;
   font-size: 15px;
   text-align: left;
   cursor: pointer;
   transition: all 0.25s ease;
-  box-shadow: 0 5px 14px rgba(15, 23, 42, 0.08);
+  color: #111827; /* ✅ DARK TEXT FIX */
+  font-weight: 500;
 }
 
+/* Hover */
 .options button:hover {
   background: #eef2ff;
+  border-color: #6366f1;
 }
 
+/* Active (Selected) */
 .options button.active {
   background: linear-gradient(135deg, #2563eb, #4f46e5);
-  color: #fff;
+  color: #ffffff; /* white text on blue */
   border-color: #1e40af;
 }
 
@@ -240,8 +244,13 @@ progress {
 }
 
 .nav button:disabled {
-  opacity: 0.5;
+  background: #d1d5db;
+  color: #6b7280;
   cursor: not-allowed;
+  opacity: 1; /* ✅ FIX */
+}
+.options button.active {
+  transform: scale(1.02);
 }
 
 /* =====================================================
