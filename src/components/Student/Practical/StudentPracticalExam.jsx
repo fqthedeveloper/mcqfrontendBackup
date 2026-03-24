@@ -17,7 +17,6 @@ export default function StudentPracticalExam() {
   const termRef = useRef(null);
   const fitAddonRef = useRef(null);
   const webglAddonRef = useRef(null);
-  const resizeObserverRef = useRef(null);
 
   const [session, setSession] = useState(null);
   const [timeLeft, setTimeLeft] = useState(null);
