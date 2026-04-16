@@ -157,10 +157,7 @@ export default function StudentPracticalExam() {
     return () => clearInterval(interval);
   }, [sessionId, submitExam, timeLeft]);
 
-  // =====================================================
-  // TERMINAL (UNCHANGED)
-  // =====================================================
-  // ================= TERMINAL =================
+
   // ================= TERMINAL =================
   useEffect(() => {
     if (!session || !terminalRef.current) return;
