@@ -1,70 +1,236 @@
-# Getting Started with Create React App
+# ⚛️ Smart Exam Platform Frontend (React)
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A **modern, scalable frontend** for a hybrid exam system supporting:
 
-## Available Scripts
+* 📝 MCQ Exams
+* 💻 Practical VM-based Exams
+* 👨‍💼 Admin Dashboard
+* 👨‍🎓 Student Portal
 
-In the project directory, you can run:
+Built using **React.js with Context API and secure API integration**.
 
-### `npm start`
+---
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+# 🧠 Frontend Architecture
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+```text
+React App
+│
+├── Auth System (Login / OTP / Password Reset)
+├── Admin Panel
+│   ├── Student Management
+│   ├── MCQ Exam Management
+│   ├── Practical Task Management
+│
+├── Student Panel
+│   ├── MCQ Exams
+│   ├── Practical Exams (VM Based)
+│   ├── Practice Mode
+│   ├── Results
+│
+└── API Layer (Centralized Service)
+```
 
-### `npm test`
+---
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+# 🚀 Key Features
 
-### `npm run build`
+## 🔐 Authentication System
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+* Login with OTP
+* Password reset & force change
+* Token-based session
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## 👨‍💼 Admin Panel
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+* Add/manage students
+* Upload MCQ questions
+* Create/edit exams
+* Manage practical tasks
+* View results
 
-### `npm run eject`
+## 👨‍🎓 Student Panel
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+* Attempt MCQ exams
+* Take practical exams (VM-based)
+* Practice mode
+* View results & profile
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+---
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+# ⚡ Practical Exam (VM Integration)
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+Frontend connects to:
 
-## Learn More
+* Django → session & student data
+* FastAPI → VM execution
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### Flow:
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+```text
+Start Practical Exam
+        ↓
+Call Django API (create session)
+        ↓
+Call FastAPI (/vm/start)
+        ↓
+VM Ready
+        ↓
+Student writes code
+        ↓
+Submit → FastAPI (/vm/verify)
+        ↓
+Score returned
+```
 
-### Code Splitting
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+# 📂 Project Structure
 
-### Analyzing the Bundle Size
+```text
+MCQFRONTEND/
+│
+├── public/
+├── src/
+│   ├── components/
+│   │   ├── Admin/
+│   │   ├── Student/
+│   │   ├── Auth/
+│   │   ├── Shared/
+│   │
+│   ├── services/     # API Layer
+│   ├── context/      # Auth + Exam Context
+│   ├── hooks/
+│   ├── utils/
+│   ├── styles/
+│
+├── App.js
+├── package.json
+└── .env
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+---
 
-### Making a Progressive Web App
+# 🔌 API Configuration (CORE)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+Your frontend uses a **centralized API handler**:
 
-### Advanced Configuration
+✔ Token handling
+✔ Auto logout on 401
+✔ URL normalization (very important)
+✔ FormData + JSON support
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+Example:
 
-### Deployment
+```javascript
+const API_BASE_URL = "http://localhost:8000/api";
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+### Features of API Layer
 
-### `npm run build` fails to minify
+* Handles all HTTP methods
+* Automatically attaches token
+* Normalizes URLs
+* Handles errors globally
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+---
+
+# 🔐 Authentication Handling
+
+* Token stored in `localStorage`
+* Auto redirect on unauthorized access
+* Role-based routing (Admin / Student)
+
+---
+
+# 🧩 Routing System (Important 🔥)
+
+### Public Routes
+
+* `/login`
+* `/login-otp`
+* `/password-reset`
+
+### Admin Routes
+
+* `/admin`
+* `/admin/add-student`
+* `/admin/exam-list`
+* `/admin/practical`
+
+### Student Routes
+
+* `/student`
+* `/student/exams`
+* `/student/practicals`
+* `/student/results`
+
+### Practical Flow Routes
+
+* `/student/practical/:taskId/start`
+* `/student/practical/session/:sessionId`
+* `/student/practical/result/:sessionId`
+
+---
+
+# ⚙️ Installation
+
+```bash
+git clone https://github.com/fqthedeveloper/mcqfrontendBackup.git
+cd MCQFRONTEND
+
+npm install
+npm start
+```
+
+---
+
+# 🌐 Environment Variables
+
+Create `.env` file:
+
+```env
+REACT_APP_API_URL=http://localhost:8000/api/
+REACT_APP_FASTAPI_URL=http://localhost:8001/
+```
+
+---
+
+# 🔗 Backend Integration
+
+| Service    | URL                        |
+| ---------- | -------------------------- |
+| Django API | http://localhost:8000/api/ |
+| FastAPI VM | http://localhost:8001/     |
+
+---
+
+# 🎯 Why This Frontend is Strong 🔥
+
+✔ Clean architecture
+✔ Role-based routing
+✔ Secure API layer
+✔ Handles complex exam flows
+✔ Supports real VM-based execution
+
+---
+
+# 🔮 Future Enhancements
+
+* Code editor (Monaco Editor)
+* Live exam timer sync
+* WebSocket integration
+* PWA support
+
+---
+
+# 👨‍💻 Author
+
+Faizan Qureshi
+Full Stack Developer | Cloud Engineer
+
+---
+
+# 📄 License
+
+MIT License
