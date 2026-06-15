@@ -36,11 +36,14 @@ import AdminResultList from "./components/Admin/MCQ/AdminResultList";
 import AdminResultDetail from "./components/Admin/MCQ/AdminResultDetail";
 import PracticeQuestionMapper from "./components/Admin/Practice/PracticeQuestionMapper";
 
+
 // Admin Pacticle 
 import PracticalTaskList from "./components/Admin/Practical/PracticalTaskList";
 import PracticalTaskForm from "./components/Admin/Practical/PracticalTaskForm";
 import AdminPracticalResultList from "./components/Admin/Practical/AdminPracticalResultList";
-
+import CyberPracticalTaskForm from "./components/Admin/CyberPractical/CyberPracticalTaskForm";
+import CyberPracticalTaskList from "./components/Admin/CyberPractical/CyberPracticalTaskList";
+import CyberPracticalTaskEdit from "./components/Admin/CyberPractical/CyberPracticalTaskEdit";
 
 /* Student */
 import StudentDashboard from "./components/Student/MCQ/StudentDashboard";
@@ -57,6 +60,14 @@ import StudentPracticalRules from "./components/Student/Practical/StudentPractic
 import StudentPracticalStarting from "./components/Student/Practical/StudentPracticalStarting";
 import StudentPracticalResult from "./components/Student/Practical/StudentPracticalResult";
 import StudentPracticalResultList from "./components/Student/Practical/StudentPracticalResultList";
+
+// cyber Lab Student Components
+import CyberLabList from "./components/Student/CyberPractical/CyberLabList";
+import CyberLabRules from "./components/Student/CyberPractical/CyberLabRules";
+import CyberLabStarting from "./components/Student/CyberPractical/CyberLabStarting";
+import CyberLabExam from "./components/Student/CyberPractical/CyberLabExam";
+import CyberResult from "./components/Student/CyberPractical/CyberResult";
+
 
 import "./App.css";
 
@@ -282,6 +293,35 @@ function App() {
                   }
                 />
 
+                <Route
+                    path="/admin/cyber-practical-list"
+                    element={
+                      <ProtectedRoute
+                        element={<CyberPracticalTaskList />}
+                        roles={["admin"]}
+                      />
+                    }
+                  />
+
+                  <Route
+                    path="/admin/add-cyber-practical"
+                    element={
+                      <ProtectedRoute
+                        element={<CyberPracticalTaskForm />}
+                        roles={["admin"]}
+                      />
+                    }
+                  />
+
+                  <Route
+                    path="/admin/edit-cyber-practical/:id"
+                    element={
+                      <ProtectedRoute
+                        element={<CyberPracticalTaskEdit />}
+                        roles={["admin"]}
+                      />
+                    }
+                  />
             
               {/* ===== STUDENT ===== */}
               <Route
@@ -427,6 +467,57 @@ function App() {
                   <ProtectedRoute
                     element={<StudentPracticalResult />}
                     roles={["student", "admin"]}
+                  />
+                }
+              />
+              
+          {/*  ===== Cyber Practical Routes for Students  ===== */}
+              <Route
+                path="/student/cyber/exams"
+                element={
+                  <ProtectedRoute
+                    element={<CyberLabList />}
+                    roles={["student"]}
+                  />
+                }
+              />
+
+              <Route
+                path="/student/cyber/:taskId/rules"
+                element={
+                  <ProtectedRoute
+                    element={<CyberLabRules />}
+                    roles={["student"]}
+                  />
+                }
+              />
+
+              <Route
+                path="/student/cyber/:taskId/start"
+                element={
+                  <ProtectedRoute
+                    element={<CyberLabStarting />}
+                    roles={["student"]}
+                  />
+                }
+              />
+
+              <Route
+                path="/student/cyber/session/:sessionId"
+                element={
+                  <ProtectedRoute
+                    element={<CyberLabExam />}
+                    roles={["student"]}
+                  />
+                }
+              />
+
+              <Route
+                path="/student/cyber/result/:sessionId"
+                element={
+                  <ProtectedRoute
+                    element={<CyberResult />}
+                    roles={["student"]}
                   />
                 }
               />

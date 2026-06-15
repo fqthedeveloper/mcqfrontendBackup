@@ -54,6 +54,9 @@ export default function AdminDashboard() {
         <Action title="Add Practical Task" icon={<Icon.Plus />} onClick={() => navigate("/admin/add-practical")} />
         <Action title="Practical Tasks" icon={<Icon.Exam />} onClick={() => navigate("/admin/list-practicals")} />
         <Action title="Practical Results" icon={<Icon.Star />} onClick={() => navigate("/admin/practical/results")} />
+        <Action title="Add Cyber Practical Task" icon={<Icon.Plus />} onClick={() => navigate("/admin/add-cyber-practical")} />
+        <Action title="Cyber Practical Tasks" icon={<Icon.Exam />} onClick={() => navigate("/admin/cyber-practical-list")} />
+        <Action title="Cyber Practical Results" icon={<Icon.Star />} onClick={() => navigate("/admin/cyber-practical/results")} />
       </section>
 
       {/* ================= STYLES ================= */}
